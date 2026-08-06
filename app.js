@@ -87,6 +87,7 @@ const ui = {
   tutorialOverlay: document.getElementById("tutorial-overlay"),
   tutorialStep: document.getElementById("tutorial-step"),
   tutorialText: document.getElementById("tutorial-text"),
+  tutorialNext: document.getElementById("tutorial-next"),
   tutorialSkip: document.getElementById("tutorial-skip"),
 
   modeRound: document.getElementById("mode-round"),
@@ -145,11 +146,11 @@ async function init() {
   renderCampaignBadges();
   renderPanelVisibility();
 
+  loadRound();
+
   if (!getCookie(TUTORIAL_COOKIE)) {
     startTutorial();
   }
-
-  loadRound();
 }
 
 function buildRoundPickers() {
@@ -354,6 +355,10 @@ function bindEvents() {
   ui.tutorialSkip.addEventListener("click", () => {
     endTutorial(true);
   });
+
+  ui.tutorialNext.addEventListener("click", () => {
+    advanceTutorial();
+  });
 }
 
 function renderMode() {
@@ -419,6 +424,132 @@ function renderPanelVisibility() {
   ui.toggleInfo.classList.toggle("active", state.infoOpen);
   ui.toggleStats.classList.toggle("active", state.statsOpen);
   updateTutorialUI();
+}
+
+function getCookie(name) {
+  const prefix = `${name}=`;
+  return document.cookie
+    .split(";")
+    .map((part) => part.trim())
+    .find((part) => part.startsWith(prefix))
+    ?.slice(prefix.length) || "";
+}
+
+function setCookie(name, value, days = 365) {
+  const expires = new Date(Date.now() + days * 86400000).toUTCString();
+  document.cookie = `${name}=${value}; expires=${expires}; path=/; SameSite=Lax`;
+}
+
+function clearTutorialFocus() {
+  document.querySelectorAll(".tutorial-focus").forEach((element) => {
+    element.classList.remove("tutorial-focus");
+  });
+}
+
+function getTutorialTarget() {
+  if (state.tutorial.step === 0) {
+    return ui.toggleSettings;
+  }
+
+  if (state.tutorial.step === 1) {
+    return ui.newRoundBtn;
+  }
+
+  if (state.tutorial.step === 2) {
+    const cellIndex = state.puzzle?.solution?.[0];
+    return typeof cellIndex === "number" ? ui.board.querySelector(`[data-index="${cellIndex}"]`) : null;
+  }
+
+  if (state.tutorial.step === 3) {
+    const cellIndex = state.puzzle?.solution?.find((cell) => !state.cats[cell]);
+    return typeof cellIndex === "number" ? ui.board.querySelector(`[data-index="${cellIndex}"]`) : null;
+  }
+
+  if (state.tutorial.step === 4) {
+    return ui.checkBtn;
+  }
+
+  return null;
+}
+
+function updateTutorialUI() {
+  clearTutorialFocus();
+
+  if (!state.tutorial.active) {
+    ui.tutorialOverlay.classList.add("hidden");
+    ui.tutorialNext.classList.add("hidden");
+    return;
+  }
+
+  const steps = [
+    { title: "Tutorial 1/5", text: "Open Settings first. Tap Settings on the top right." },
+    { title: "Tutorial 2/5", text: "Great. Start a fresh 4x4 practice grid." },
+    { title: "Tutorial 3/5", text: "Tap the glowing cell to place your first cat." },
+    { title: "Tutorial 4/5", text: "Nice. Tap the next glowing cell in another color." },
+    { title: "Tutorial 5/5", text: "Use Check to verify your progress. Then you are ready." }
+  ];
+
+  const current = steps[Math.min(state.tutorial.step, steps.length - 1)];
+  ui.tutorialOverlay.classList.remove("hidden");
+  ui.tutorialStep.textContent = current.title;
+  ui.tutorialText.textContent = current.text;
+  ui.tutorialNext.classList.toggle("hidden", state.tutorial.step < 4);
+
+  const target = getTutorialTarget();
+  if (target) {
+    target.classList.add("tutorial-focus");
+  }
+}
+
+function startTutorial(forceRestart = false) {
+  if (forceRestart) {
+    setCookie(TUTORIAL_COOKIE, "", -1);
+  }
+
+  state.mode = "round";
+  state.selectedRoundSize = 4;
+  state.selectedRoundSingletons = 2;
+  state.selectedRoundModifiers = {
+    maxHints: null,
+    maxChecks: null,
+    solverDisabled: false
+  };
+  state.selectedRoundDifficulty = getDifficultyFromSingletons(4, 2);
+  closeAllSidebars();
+  state.settingsOpen = true;
+  state.tutorial.active = true;
+  state.tutorial.step = 0;
+  renderRoundPickerState();
+  renderPanelVisibility();
+  loadRound();
+  updateTutorialUI();
+}
+
+function advanceTutorial() {
+  if (!state.tutorial.active) {
+    return;
+  }
+
+  state.tutorial.step += 1;
+
+  if (state.tutorial.step > 4) {
+    endTutorial();
+    return;
+  }
+
+  updateTutorialUI();
+}
+
+function endTutorial(skipped = false) {
+  state.tutorial.active = false;
+  state.tutorial.step = 0;
+  clearTutorialFocus();
+  ui.tutorialOverlay.classList.add("hidden");
+  ui.tutorialNext.classList.add("hidden");
+  if (!skipped) {
+    setStatus("Tutorial complete. You are ready.", "win");
+  }
+  setCookie(TUTORIAL_COOKIE, "1", 365);
 }
 
 function closeAllSidebars() {

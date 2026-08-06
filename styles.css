@@ -179,6 +179,7 @@ button {
   align-items: center;
   justify-content: center;
   gap: 0.45rem;
+  white-space: nowrap;
 }
 
 .btn-icon {
@@ -193,11 +194,14 @@ button {
 .btn-icon svg {
   width: 100%;
   height: 100%;
-  stroke: currentColor;
-  fill: none;
   stroke-width: 2;
   stroke-linecap: round;
   stroke-linejoin: round;
+}
+
+.btn-icon svg * {
+  stroke: currentColor;
+  fill: none;
 }
 
 .tab {
