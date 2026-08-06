@@ -331,23 +331,24 @@ function buildRoundConfig(size, difficulty) {
 
 function getCampaignConfig(level) {
   const phases = [
-    { start: 1, end: 8, size: 2, regions: 2, allowTouch: true, minBlockers: 0, maxBlockers: 0 },
-    { start: 9, end: 18, size: 3, regions: 3, allowTouch: true, minBlockers: 0, maxBlockers: 0 },
+    { start: 1, end: 3, size: 2, regions: 2, allowTouch: true, minBlockers: 0, maxBlockers: 0 },
+    { start: 4, end: 8, size: 3, regions: 3, allowTouch: true, minBlockers: 0, maxBlockers: 0 },
 
-    { start: 19, end: 28, size: 4, regions: 2, allowTouch: false, minBlockers: 0, maxBlockers: 0 },
-    { start: 29, end: 38, size: 4, regions: 3, allowTouch: false, minBlockers: 0, maxBlockers: 0 },
-    { start: 39, end: 50, size: 4, regions: 4, allowTouch: false, minBlockers: 0, maxBlockers: 1 },
+    { start: 9, end: 14, size: 4, regions: 3, allowTouch: false, minBlockers: 0, maxBlockers: 0 },
+    { start: 15, end: 22, size: 4, regions: 4, allowTouch: false, minBlockers: 0, maxBlockers: 1 },
 
-    { start: 51, end: 60, size: 5, regions: 3, allowTouch: false, minBlockers: 0, maxBlockers: 1 },
-    { start: 61, end: 70, size: 5, regions: 4, allowTouch: false, minBlockers: 0, maxBlockers: 2 },
-    { start: 71, end: 78, size: 5, regions: 5, allowTouch: false, minBlockers: 0, maxBlockers: 2 },
+    { start: 23, end: 30, size: 5, regions: 3, allowTouch: false, minBlockers: 0, maxBlockers: 1 },
+    { start: 31, end: 40, size: 5, regions: 4, allowTouch: false, minBlockers: 0, maxBlockers: 2 },
+    { start: 41, end: 50, size: 5, regions: 5, allowTouch: false, minBlockers: 0, maxBlockers: 2 },
 
-    { start: 79, end: 84, size: 6, regions: 4, allowTouch: false, minBlockers: 0, maxBlockers: 3 },
-    { start: 85, end: 89, size: 7, regions: 5, allowTouch: false, minBlockers: 0, maxBlockers: 3 },
-    { start: 90, end: 94, size: 8, regions: 6, allowTouch: false, minBlockers: 1, maxBlockers: 4 },
+    { start: 51, end: 58, size: 6, regions: 4, allowTouch: false, minBlockers: 0, maxBlockers: 2 },
+    { start: 59, end: 66, size: 6, regions: 5, allowTouch: false, minBlockers: 0, maxBlockers: 3 },
+    { start: 67, end: 74, size: 7, regions: 5, allowTouch: false, minBlockers: 0, maxBlockers: 3 },
+    { start: 75, end: 82, size: 7, regions: 6, allowTouch: false, minBlockers: 1, maxBlockers: 3 },
+    { start: 83, end: 90, size: 8, regions: 6, allowTouch: false, minBlockers: 1, maxBlockers: 4 },
 
-    { start: 95, end: 97, size: 9, regions: 7, allowTouch: false, minBlockers: 1, maxBlockers: 4 },
-    { start: 98, end: 99, size: 9, regions: 8, allowTouch: false, minBlockers: 2, maxBlockers: 5 },
+    { start: 91, end: 96, size: 9, regions: 7, allowTouch: false, minBlockers: 1, maxBlockers: 4 },
+    { start: 97, end: 99, size: 9, regions: 8, allowTouch: false, minBlockers: 2, maxBlockers: 5 },
     { start: 100, end: 100, size: 9, regions: 9, allowTouch: false, minBlockers: 2, maxBlockers: 2 }
   ];
 
@@ -356,7 +357,7 @@ function getCampaignConfig(level) {
   const span = phase.end - phase.start;
   const t = span === 0 ? 1 : (safeLevel - phase.start) / span;
   const blockers = Math.round(phase.minBlockers + t * (phase.maxBlockers - phase.minBlockers));
-  const difficulty = safeLevel <= 35 ? "easy" : safeLevel <= 75 ? "normal" : "hard";
+  const difficulty = safeLevel <= 8 ? "easy" : safeLevel <= 55 ? "normal" : "hard";
   const profile = getDifficultyProfile(difficulty, safeLevel);
 
   return normalizeConfig({
@@ -395,7 +396,7 @@ function getDifficultyProfile(difficulty, level) {
   if (difficulty === "easy") {
     return {
       irregularity: 0.2 + campaignBoost * 0.08,
-      singletonBias: 0.62 - campaignBoost * 0.15,
+      singletonBias: 0.28 - campaignBoost * 0.08,
       blockers: 0
     };
   }
@@ -410,7 +411,7 @@ function getDifficultyProfile(difficulty, level) {
 
   return {
     irregularity: 0.34 + campaignBoost * 0.1,
-    singletonBias: 0.24 - campaignBoost * 0.1,
+    singletonBias: 0.12 - campaignBoost * 0.06,
     blockers: 0
   };
 }
