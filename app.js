@@ -1230,6 +1230,18 @@ function renderRules() {
     lines.push(`Tiny one-cell regions: ${config.singletonCount} of ${getMaxSingletonRegions(config.size)} possible.`);
   }
 
+  if (config.shapeStyle === "snaky") {
+    lines.push("Special shape: longer snaky regions.");
+  } else if (config.shapeStyle === "chunky") {
+    lines.push("Special shape: chunkier compact regions.");
+  }
+
+  if (config.blockerMode === "mixed") {
+    lines.push("Some blockers are fragile: tap once to clear them.");
+  } else if (config.blockerMode === "solid" && config.blockers > 0) {
+    lines.push("Solid blockers cannot hold cats.");
+  }
+
   if (config.allowDiagonalTouch && config.size <= 3) {
     lines.push("On this tiny board, diagonal touching is allowed.");
   } else {
@@ -1358,6 +1370,7 @@ function giveHint() {
 function computeSolverCandidates() {
   const puzzle = state.puzzle;
   const config = state.config;
+  const blockerOf = state.blockerOf;
   const total = puzzle.size * puzzle.size;
   const regionHasCat = new Array(puzzle.regionCount).fill(false);
   const regionCounts = new Array(puzzle.regionCount).fill(0);
@@ -1370,7 +1383,7 @@ function computeSolverCandidates() {
   }
 
   for (let i = 0; i < total; i++) {
-    if (puzzle.blocked[i] || state.cats[i]) {
+    if (blockerOf[i] || state.cats[i]) {
       continue;
     }
 
@@ -1386,7 +1399,7 @@ function computeSolverCandidates() {
     const presetCats = state.cats.slice();
     presetCats[i] = true;
 
-    if (solvePuzzle(puzzle, config, presetCats, 1).length > 0) {
+    if (solvePuzzle(puzzle, config, presetCats, 1, blockerOf).length > 0) {
       regionCounts[regionId]++;
       candidateCells.push(i);
     }
@@ -1476,6 +1489,9 @@ async function handleSolvedGame() {
   state.earnedStars = calculateStars();
   renderStars(state.earnedStars);
   updateStats();
+  if (state.config.mode === "round") {
+    ui.newGridBtn.classList.remove("hidden");
+  }
   await saveBestScoreForCurrentConfig(state.elapsedMs);
 
   if (state.config.mode === "campaign" && state.config.level < 100) {
@@ -1658,14 +1674,14 @@ async function putScore(record) {
   await writeStore(STORE_SCORES, record);
 }
 
-function solvePuzzle(puzzle, config, presetCats, maxSolutions = 1) {
+function solvePuzzle(puzzle, config, presetCats, maxSolutions = 1, blockerOf = puzzle.blocked) {
   const size = puzzle.size;
   const total = size * size;
   const solutionSet = [];
 
   const regionCells = Array.from({ length: puzzle.regionCount }, () => []);
   for (let i = 0; i < total; i++) {
-    if (!puzzle.blocked[i]) {
+    if (!blockerOf[i]) {
       regionCells[puzzle.regionOf[i]].push(i);
     }
   }

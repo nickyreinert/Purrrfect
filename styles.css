@@ -407,9 +407,17 @@ input {
 }
 
 .cell.blocked::after {
-  content: "✕";
   font-size: 1.1em;
   color: rgba(88, 34, 8, 0.72);
+}
+
+.cell.blocked-solid::after {
+  content: "✕";
+}
+
+.cell.blocked-fragile::after {
+  content: "⟲";
+  color: rgba(25, 88, 110, 0.9);
 }
 
 .cell.cat {
