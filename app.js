@@ -10,7 +10,7 @@ const REGION_PALETTE = [
   "#277DA1"
 ];
 
-const DB_NAME = "purrfect_regions_db";
+const DB_NAME = "purrrfect_regions_db";
 const DB_VERSION = 1;
 const STORE_META = "meta";
 const STORE_SCORES = "scores";
@@ -38,6 +38,7 @@ const state = {
   topTimes: [],
   earnedStars: 0,
   campaignUnlockedLevel: 1,
+  totalCampaignStars: 0,
   solverMode: false,
   solverCandidates: new Map(),
   settingsOpen: false,
@@ -47,6 +48,11 @@ const state = {
   selectedRoundSize: 5,
   selectedRoundSingletons: 2,
   selectedRoundDifficulty: "normal",
+  selectedRoundModifiers: {
+    maxHints: null,
+    maxChecks: null,
+    solverDisabled: false
+  },
   selectedCampaignLevel: 1
 };
 
@@ -63,6 +69,7 @@ const ui = {
   statTime: document.getElementById("stat-time"),
   statBest: document.getElementById("stat-best"),
   statUnlocked: document.getElementById("stat-unlocked"),
+  statTotalStars: document.getElementById("stat-total-stars"),
   statStars: document.getElementById("stat-stars"),
   starsStrip: document.getElementById("stars-strip"),
   rulesList: document.getElementById("rules-list"),
@@ -85,6 +92,7 @@ const ui = {
 
   sizeOptions: document.getElementById("size-options"),
   difficultyOptions: document.getElementById("difficulty-options"),
+  modifierOptions: document.getElementById("modifier-options"),
   difficultySlider: document.getElementById("difficulty-slider"),
   difficultyHelp: document.getElementById("difficulty-help"),
   difficultyReadout: document.getElementById("difficulty-readout"),
@@ -93,6 +101,7 @@ const ui = {
   levelDownBtn: document.getElementById("level-down"),
   levelUpBtn: document.getElementById("level-up"),
   levelValue: document.getElementById("level-value"),
+  campaignLockNote: document.getElementById("campaign-lock-note"),
   loadLevelBtn: document.getElementById("load-level"),
   nextLevelBtn: document.getElementById("next-level"),
 
@@ -114,8 +123,10 @@ async function init() {
   await initDatabase();
   const storedLevel = await getMeta("campaignUnlockedLevel", 1);
   state.campaignUnlockedLevel = clamp(Number(storedLevel || 1), 1, 100);
+  state.totalCampaignStars = await getTotalCampaignStars();
   state.selectedCampaignLevel = state.campaignUnlockedLevel;
   ui.statUnlocked.textContent = String(state.campaignUnlockedLevel);
+  ui.statTotalStars.textContent = String(state.totalCampaignStars);
   updateLevelDisplay();
   renderPanelVisibility();
 
@@ -148,8 +159,32 @@ function buildRoundPickers() {
   state.selectedRoundSingletons = getPresetSingletons(state.selectedRoundSize, "normal");
   state.selectedRoundDifficulty = "normal";
   syncDifficultyButtons();
+  syncModifierButtons();
   syncRoundDifficultySlider();
   renderRoundPickerState();
+}
+
+function syncModifierButtons() {
+  ui.modifierOptions.innerHTML = "";
+
+  const options = [
+    { key: "hint", label: "💡 1 Hint" },
+    { key: "check", label: "✅ 2 Checks" },
+    { key: "solver", label: "🚫 Solver" }
+  ];
+
+  for (const option of options) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "option-btn";
+    button.textContent = option.label;
+    button.dataset.modifier = option.key;
+    button.addEventListener("click", () => {
+      toggleRoundModifier(option.key);
+      renderRoundPickerState();
+    });
+    ui.modifierOptions.append(button);
+  }
 }
 
 function bindEvents() {
@@ -1089,7 +1124,7 @@ function onCellClick(index) {
     state.elapsedMs = Date.now() - state.startedAt;
     stopTimer();
     updateStats();
-    setStatus(`You solved it in ${formatDuration(state.elapsedMs)}. Purrfect!`, "win");
+    setStatus(`You solved it in ${formatDuration(state.elapsedMs)}. Purrrfect!`, "win");
     handleSolvedGame().then(() => {
       if (state.config.mode === "round") {
         ui.newGridBtn.classList.remove("hidden");
