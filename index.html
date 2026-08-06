@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#f5b700" />
+    <meta name="description" content="Purrfect Regions - a Meowdoku-style puzzle" />
+    <link rel="manifest" href="manifest.webmanifest" />
+    <link rel="icon" href="icons/icon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="icons/icon.svg" />
+    <title>Purrfect Regions</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="bg-shape bg-shape-a" aria-hidden="true"></div>
+    <div class="bg-shape bg-shape-b" aria-hidden="true"></div>
+
+    <main class="app-shell">
+      <header class="hero">
+        <p class="eyebrow">PWA Puzzle</p>
+        <h1>Purrfect Regions</h1>
+        <p class="subtitle">A Meowdoku-style logic game with campaign and round mode.</p>
+      </header>
+
+      <section class="panel controls" aria-label="Game controls">
+        <div class="mode-row">
+          <button id="mode-round" class="tab active" type="button">Round</button>
+          <button id="mode-campaign" class="tab" type="button">Campaign</button>
+        </div>
+
+        <div id="round-controls" class="control-grid">
+          <label>
+            Board size
+            <select id="size-select"></select>
+          </label>
+          <label>
+            Regions/Cats
+            <select id="region-select"></select>
+          </label>
+          <button id="new-round" class="cta" type="button">Start Round</button>
+        </div>
+
+        <div id="campaign-controls" class="control-grid hidden">
+          <label>
+            Campaign level
+            <input id="level-input" type="number" min="1" max="100" value="1" />
+          </label>
+          <button id="load-level" class="cta" type="button">Load Level</button>
+          <button id="next-level" class="ghost" type="button">Next Level</button>
+        </div>
+      </section>
+
+      <section class="panel stats" aria-label="Game stats">
+        <p><strong>Mode:</strong> <span id="stat-mode">Round</span></p>
+        <p><strong>Board:</strong> <span id="stat-size">3x3</span></p>
+        <p><strong>Cats to place:</strong> <span id="stat-cats">1</span></p>
+        <p><strong>Placed:</strong> <span id="stat-placed">0</span></p>
+        <p><strong>Mistakes:</strong> <span id="stat-mistakes">0</span></p>
+        <p><strong>Time:</strong> <span id="stat-time">00:00</span></p>
+        <p><strong>Best:</strong> <span id="stat-best">-</span></p>
+        <p><strong>Campaign unlocked:</strong> <span id="stat-unlocked">1</span></p>
+      </section>
+
+      <section class="panel rules" aria-label="Rules helper">
+        <h2>Rules</h2>
+        <ul id="rules-list"></ul>
+      </section>
+
+      <section class="panel board-panel" aria-label="Puzzle board">
+        <div class="board-tools">
+          <button id="hint-btn" class="ghost" type="button">Hint</button>
+          <button id="solver-btn" class="ghost" type="button">Solver Candidates</button>
+          <button id="check-btn" class="ghost" type="button">Check</button>
+          <button id="reset-btn" class="ghost" type="button">Reset</button>
+        </div>
+        <div id="board" class="board" role="grid" aria-label="Puzzle grid"></div>
+        <p id="status" class="status" aria-live="polite">Build a puzzle to start.</p>
+      </section>
+    </main>
+
+    <script src="app.js" defer></script>
+  </body>
+</html>
