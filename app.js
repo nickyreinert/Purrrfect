@@ -39,6 +39,7 @@ const state = {
   solverCandidates: new Map(),
   settingsOpen: false,
   infoOpen: false,
+  statsOpen: false,
   autoAdvanceTimerId: null,
   selectedRoundSize: 5,
   selectedRoundDifficulty: "normal",
@@ -65,11 +66,13 @@ const ui = {
   modeCampaign: document.getElementById("mode-campaign"),
   toggleSettings: document.getElementById("toggle-settings"),
   toggleInfo: document.getElementById("toggle-info"),
+  toggleStats: document.getElementById("toggle-stats"),
   closeSettings: document.getElementById("close-settings"),
+  closeInfo: document.getElementById("close-info"),
+  closeStats: document.getElementById("close-stats"),
   settingsPanel: document.getElementById("settings-panel"),
   statsPanel: document.getElementById("stats-panel"),
   rulesPanel: document.getElementById("rules-panel"),
-  leaderboardPanel: document.getElementById("leaderboard-panel"),
   roundControls: document.getElementById("round-controls"),
   campaignControls: document.getElementById("campaign-controls"),
 
@@ -120,7 +123,6 @@ function buildRoundPickers() {
     button.dataset.size = String(size);
     button.addEventListener("click", () => {
       state.selectedRoundSize = size;
-      syncRegionOptionButtons();
       renderRoundPickerState();
     });
     ui.sizeOptions.append(button);
@@ -144,7 +146,9 @@ function bindEvents() {
   });
 
   ui.toggleSettings.addEventListener("click", () => {
-    state.settingsOpen = !state.settingsOpen;
+    const next = !state.settingsOpen;
+    closeAllSidebars();
+    state.settingsOpen = next;
     renderPanelVisibility();
   });
 
@@ -154,7 +158,26 @@ function bindEvents() {
   });
 
   ui.toggleInfo.addEventListener("click", () => {
-    state.infoOpen = !state.infoOpen;
+    const next = !state.infoOpen;
+    closeAllSidebars();
+    state.infoOpen = next;
+    renderPanelVisibility();
+  });
+
+  ui.closeInfo.addEventListener("click", () => {
+    state.infoOpen = false;
+    renderPanelVisibility();
+  });
+
+  ui.toggleStats.addEventListener("click", () => {
+    const next = !state.statsOpen;
+    closeAllSidebars();
+    state.statsOpen = next;
+    renderPanelVisibility();
+  });
+
+  ui.closeStats.addEventListener("click", () => {
+    state.statsOpen = false;
     renderPanelVisibility();
   });
 
@@ -239,12 +262,18 @@ function renderMode() {
 
 function renderPanelVisibility() {
   ui.settingsPanel.classList.toggle("open", state.settingsOpen);
-  ui.statsPanel.classList.toggle("hidden", !state.infoOpen);
-  ui.rulesPanel.classList.toggle("hidden", !state.infoOpen);
-  ui.leaderboardPanel.classList.toggle("hidden", !state.infoOpen);
+  ui.rulesPanel.classList.toggle("open", state.infoOpen);
+  ui.statsPanel.classList.toggle("open", state.statsOpen);
 
   ui.toggleSettings.classList.toggle("active", state.settingsOpen);
   ui.toggleInfo.classList.toggle("active", state.infoOpen);
+  ui.toggleStats.classList.toggle("active", state.statsOpen);
+}
+
+function closeAllSidebars() {
+  state.settingsOpen = false;
+  state.infoOpen = false;
+  state.statsOpen = false;
 }
 
 function updateLevelDisplay() {

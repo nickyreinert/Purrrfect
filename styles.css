@@ -133,7 +133,7 @@ h1 {
   padding: 1rem;
 }
 
-.controls {
+.sidebar-panel {
   position: fixed;
   right: 1rem;
   top: 50%;
@@ -145,8 +145,17 @@ h1 {
   transition: transform 220ms ease;
 }
 
-.controls.open {
+.sidebar-panel.open {
   transform: translate(0, -50%);
+}
+
+.controls {
+  z-index: 42;
+}
+
+.stats,
+.rules {
+  z-index: 41;
 }
 
 .board-panel {
@@ -348,6 +357,12 @@ input {
   font-weight: 600;
 }
 
+.sidebar-divider {
+  border: 0;
+  border-top: 1px solid rgba(184, 131, 73, 0.24);
+  margin: 0.9rem 0;
+}
+
 .board-tools {
   display: flex;
   flex-wrap: wrap;
@@ -522,7 +537,7 @@ input {
     justify-content: center;
   }
 
-  .controls {
+  .sidebar-panel {
     width: min(420px, calc(100vw - 1rem));
     right: 0.5rem;
     max-height: calc(100vh - 1rem);
