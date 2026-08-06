@@ -325,6 +325,12 @@ input {
   color: #8e430f;
 }
 
+button:disabled,
+.ghost.disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
 .hidden {
   display: none;
 }

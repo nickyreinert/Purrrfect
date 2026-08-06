@@ -28,6 +28,7 @@ const state = {
   status: "playing",
   mistakes: 0,
   hintsUsed: 0,
+  checksUsed: 0,
   history: [],
   mode: "round",
   startedAt: 0,
@@ -245,6 +246,11 @@ function bindEvents() {
   });
 
   ui.solverBtn.addEventListener("click", () => {
+    if (state.config.modifiers.solverDisabled) {
+      setStatus("Solver is disabled on this level.", "warn");
+      return;
+    }
+
     state.solverMode = !state.solverMode;
     ui.solverBtn.classList.toggle("active", state.solverMode);
     renderBoard();
@@ -406,6 +412,11 @@ function buildRoundConfig(size, singletonCount) {
     difficulty,
     size: normalizedSize,
     regionCount: normalizedSize,
+    modifiers: {
+      maxHints: null,
+      maxChecks: null,
+      solverDisabled: false
+    },
     allowDiagonalTouch,
     blockers: 0,
     blockerMode: "none",
@@ -440,6 +451,7 @@ function getCampaignConfig(level) {
   const singletonCount = getCampaignSingletonCount(phase.size, safeLevel, difficulty, t);
   const blockerMode = getBlockerModeForLevel(safeLevel);
   const shapeStyle = getCampaignShapeStyle(safeLevel);
+  const modifiers = getModifiersForLevel(safeLevel);
 
   return normalizeConfig({
     mode: "campaign",
@@ -447,6 +459,7 @@ function getCampaignConfig(level) {
     difficulty,
     size: phase.size,
     regionCount: phase.size,
+    modifiers,
     allowDiagonalTouch: phase.allowTouch,
     blockers,
     blockerMode,
@@ -456,6 +469,22 @@ function getCampaignConfig(level) {
     singletonCount,
     seed: "campaign:" + safeLevel
   });
+}
+
+function getModifiersForLevel(level) {
+  if (level < 35) {
+    return { maxHints: null, maxChecks: null, solverDisabled: false };
+  }
+
+  if (level < 60) {
+    return { maxHints: 1, maxChecks: null, solverDisabled: false };
+  }
+
+  if (level < 80) {
+    return { maxHints: 1, maxChecks: 2, solverDisabled: false };
+  }
+
+  return { maxHints: 0, maxChecks: 1, solverDisabled: true };
 }
 
 function getCampaignSingletonCount(size, level, difficulty, t) {
@@ -580,10 +609,21 @@ function normalizeConfig(config) {
     singletonCount,
     blockerMode,
     shapeStyle,
+    modifiers: normalizeModifiers(config.modifiers),
     allowDiagonalTouch,
     blockers: Math.max(0, Math.floor(config.blockers || 0)),
     irregularity: clamp(Number(config.irregularity) || 0, 0, 1),
     singletonBias: clamp(Number(config.singletonBias) || 0, 0, 1)
+  };
+}
+
+function normalizeModifiers(modifiers) {
+  const source = modifiers || {};
+
+  return {
+    maxHints: Number.isFinite(Number(source.maxHints)) ? Math.max(0, Number(source.maxHints)) : null,
+    maxChecks: Number.isFinite(Number(source.maxChecks)) ? Math.max(0, Number(source.maxChecks)) : null,
+    solverDisabled: !!source.solverDisabled
   };
 }
 
@@ -599,6 +639,7 @@ function startGame(config) {
   state.status = "playing";
   state.mistakes = 0;
   state.hintsUsed = 0;
+  state.checksUsed = 0;
   state.history = [];
   state.solverCandidates = new Map();
   state.bestMs = null;
@@ -607,6 +648,8 @@ function startGame(config) {
   state.startedAt = Date.now();
   state.elapsedMs = 0;
   ui.newGridBtn.classList.add("hidden");
+  ui.solverBtn.disabled = !!config.modifiers.solverDisabled;
+  ui.solverBtn.classList.toggle("disabled", !!config.modifiers.solverDisabled);
 
   startTimer();
 
@@ -1188,6 +1231,13 @@ function checkWin(currentState) {
 }
 
 function checkCurrentBoard() {
+  const maxChecks = state.config.modifiers.maxChecks;
+  if (maxChecks !== null && state.checksUsed >= maxChecks) {
+    setStatus("No checks left on this level.", "warn");
+    return;
+  }
+
+  state.checksUsed++;
   const result = checkBoard(state.cats, state.puzzle, state.config);
 
   if (result.valid && state.catCount === state.config.regionCount) {
@@ -1240,6 +1290,20 @@ function renderRules() {
     lines.push("Some blockers are fragile: tap once to clear them.");
   } else if (config.blockerMode === "solid" && config.blockers > 0) {
     lines.push("Solid blockers cannot hold cats.");
+  }
+
+  if (config.modifiers.maxHints === 0) {
+    lines.push("Modifier: no hints.");
+  } else if (config.modifiers.maxHints !== null) {
+    lines.push(`Modifier: ${config.modifiers.maxHints} hint${config.modifiers.maxHints === 1 ? "" : "s"} available.`);
+  }
+
+  if (config.modifiers.maxChecks !== null) {
+    lines.push(`Modifier: ${config.modifiers.maxChecks} check${config.modifiers.maxChecks === 1 ? "" : "s"} available.`);
+  }
+
+  if (config.modifiers.solverDisabled) {
+    lines.push("Modifier: solver disabled.");
   }
 
   if (config.allowDiagonalTouch && config.size <= 3) {
@@ -1321,6 +1385,12 @@ function explainReason(reason) {
 function giveHint() {
   if (state.status === "won") {
     setStatus("Already solved.", "");
+    return;
+  }
+
+  const maxHints = state.config.modifiers.maxHints;
+  if (maxHints !== null && state.hintsUsed >= maxHints) {
+    setStatus("No hints left on this level.", "warn");
     return;
   }
 
