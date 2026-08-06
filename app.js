@@ -22,6 +22,7 @@ const dbState = {
 const state = {
   config: null,
   puzzle: null,
+  blockerOf: [],
   cats: [],
   catCount: 0,
   status: "playing",
@@ -52,6 +53,7 @@ const ui = {
   board: document.getElementById("board"),
   status: document.getElementById("status"),
   nextAutoBtn: document.getElementById("next-auto-btn"),
+  newGridBtn: document.getElementById("new-grid-btn"),
   statMode: document.getElementById("stat-mode"),
   statSize: document.getElementById("stat-size"),
   statCats: document.getElementById("stat-cats"),
@@ -257,6 +259,7 @@ function bindEvents() {
     if (!state.puzzle) return;
     clearAutoAdvance();
     state.cats = new Array(state.puzzle.size * state.puzzle.size).fill(false);
+    state.blockerOf = state.puzzle.blocked.slice();
     state.catCount = 0;
     state.status = "playing";
     state.solverCandidates = new Map();
@@ -267,6 +270,10 @@ function bindEvents() {
 
   ui.nextAutoBtn.addEventListener("click", () => {
     advanceToNextCampaignLevel();
+  });
+
+  ui.newGridBtn.addEventListener("click", () => {
+    loadRound();
   });
 }
 
@@ -386,6 +393,7 @@ function buildRoundConfig(size, singletonCount) {
   const difficulty = getDifficultyFromSingletons(normalizedSize, normalizedSingletonCount);
   const singletonBias = maxSingletons === 0 ? 0 : normalizedSingletonCount / maxSingletons;
   const irregularity = 0.18 + (1 - singletonBias) * 0.42;
+  const shapeStyle = getShapeStyleForDifficulty(difficulty);
 
   let allowDiagonalTouch = false;
   if (normalizedSize <= 3) {
@@ -400,6 +408,8 @@ function buildRoundConfig(size, singletonCount) {
     regionCount: normalizedSize,
     allowDiagonalTouch,
     blockers: 0,
+    blockerMode: "none",
+    shapeStyle,
     irregularity,
     singletonBias,
     singletonCount: normalizedSingletonCount,
@@ -409,25 +419,15 @@ function buildRoundConfig(size, singletonCount) {
 
 function getCampaignConfig(level) {
   const phases = [
-    { start: 1, end: 3, size: 2, regions: 2, allowTouch: true, minBlockers: 0, maxBlockers: 0 },
-    { start: 4, end: 8, size: 3, regions: 3, allowTouch: true, minBlockers: 0, maxBlockers: 0 },
+    { start: 1, end: 3, size: 2, allowTouch: true, minBlockers: 0, maxBlockers: 0 },
+    { start: 4, end: 8, size: 3, allowTouch: true, minBlockers: 0, maxBlockers: 0 },
 
-    { start: 9, end: 14, size: 4, regions: 3, allowTouch: false, minBlockers: 0, maxBlockers: 0 },
-    { start: 15, end: 22, size: 4, regions: 4, allowTouch: false, minBlockers: 0, maxBlockers: 1 },
-
-    { start: 23, end: 30, size: 5, regions: 3, allowTouch: false, minBlockers: 0, maxBlockers: 1 },
-    { start: 31, end: 40, size: 5, regions: 4, allowTouch: false, minBlockers: 0, maxBlockers: 2 },
-    { start: 41, end: 50, size: 5, regions: 5, allowTouch: false, minBlockers: 0, maxBlockers: 2 },
-
-    { start: 51, end: 58, size: 6, regions: 4, allowTouch: false, minBlockers: 0, maxBlockers: 2 },
-    { start: 59, end: 66, size: 6, regions: 5, allowTouch: false, minBlockers: 0, maxBlockers: 3 },
-    { start: 67, end: 74, size: 7, regions: 5, allowTouch: false, minBlockers: 0, maxBlockers: 3 },
-    { start: 75, end: 82, size: 7, regions: 6, allowTouch: false, minBlockers: 1, maxBlockers: 3 },
-    { start: 83, end: 90, size: 8, regions: 6, allowTouch: false, minBlockers: 1, maxBlockers: 4 },
-
-    { start: 91, end: 96, size: 9, regions: 7, allowTouch: false, minBlockers: 1, maxBlockers: 4 },
-    { start: 97, end: 99, size: 9, regions: 8, allowTouch: false, minBlockers: 2, maxBlockers: 5 },
-    { start: 100, end: 100, size: 9, regions: 9, allowTouch: false, minBlockers: 2, maxBlockers: 2 }
+    { start: 9, end: 18, size: 4, allowTouch: false, minBlockers: 0, maxBlockers: 1 },
+    { start: 19, end: 32, size: 5, allowTouch: false, minBlockers: 0, maxBlockers: 2 },
+    { start: 33, end: 48, size: 6, allowTouch: false, minBlockers: 0, maxBlockers: 3 },
+    { start: 49, end: 66, size: 7, allowTouch: false, minBlockers: 1, maxBlockers: 3 },
+    { start: 67, end: 84, size: 8, allowTouch: false, minBlockers: 1, maxBlockers: 4 },
+    { start: 85, end: 100, size: 9, allowTouch: false, minBlockers: 2, maxBlockers: 5 }
   ];
 
   const safeLevel = clamp(level, 1, 100);
@@ -437,19 +437,57 @@ function getCampaignConfig(level) {
   const blockers = Math.round(phase.minBlockers + t * (phase.maxBlockers - phase.minBlockers));
   const difficulty = safeLevel <= 8 ? "easy" : safeLevel <= 55 ? "normal" : "hard";
   const profile = getDifficultyProfile(difficulty, safeLevel);
+  const singletonCount = getCampaignSingletonCount(phase.size, safeLevel, difficulty, t);
+  const blockerMode = getBlockerModeForLevel(safeLevel);
+  const shapeStyle = getCampaignShapeStyle(safeLevel);
 
   return normalizeConfig({
     mode: "campaign",
     level: safeLevel,
     difficulty,
     size: phase.size,
-    regionCount: phase.regions,
+    regionCount: phase.size,
     allowDiagonalTouch: phase.allowTouch,
     blockers,
+    blockerMode,
+    shapeStyle,
     irregularity: profile.irregularity,
-    singletonBias: profile.singletonBias,
+    singletonBias: getMaxSingletonRegions(phase.size) === 0 ? 0 : singletonCount / getMaxSingletonRegions(phase.size),
+    singletonCount,
     seed: "campaign:" + safeLevel
   });
+}
+
+function getCampaignSingletonCount(size, level, difficulty, t) {
+  const maxSingletons = getMaxSingletonRegions(size);
+
+  if (difficulty === "easy") {
+    return Math.max(1, maxSingletons - Math.round(t));
+  }
+
+  if (difficulty === "hard") {
+    return Math.max(0, Math.round(maxSingletons * 0.2 - t));
+  }
+
+  return Math.max(1, Math.round(maxSingletons * 0.5 - t * 0.5));
+}
+
+function getBlockerModeForLevel(level) {
+  if (level < 40) return "none";
+  if (level < 75) return "solid";
+  return "mixed";
+}
+
+function getShapeStyleForDifficulty(difficulty) {
+  if (difficulty === "easy") return "chunky";
+  if (difficulty === "hard") return "snaky";
+  return "organic";
+}
+
+function getCampaignShapeStyle(level) {
+  if (level < 25) return "chunky";
+  if (level < 60) return "organic";
+  return level % 2 === 0 ? "snaky" : "organic";
 }
 
 function getMaxSingletonRegions(size) {
@@ -517,6 +555,8 @@ function normalizeConfig(config) {
   const difficulty = ["easy", "normal", "hard"].includes(config.difficulty) ? config.difficulty : "normal";
   const maxSingletons = getMaxSingletonRegions(size);
   const singletonCount = clamp(Number(config.singletonCount) || 0, 0, maxSingletons);
+  const blockerMode = ["none", "solid", "mixed"].includes(config.blockerMode) ? config.blockerMode : "none";
+  const shapeStyle = ["chunky", "organic", "snaky"].includes(config.shapeStyle) ? config.shapeStyle : "organic";
 
   let allowDiagonalTouch = !!config.allowDiagonalTouch;
 
@@ -538,6 +578,8 @@ function normalizeConfig(config) {
     size,
     regionCount,
     singletonCount,
+    blockerMode,
+    shapeStyle,
     allowDiagonalTouch,
     blockers: Math.max(0, Math.floor(config.blockers || 0)),
     irregularity: clamp(Number(config.irregularity) || 0, 0, 1),
@@ -551,6 +593,7 @@ function startGame(config) {
   const puzzle = generatePuzzle(config);
   state.config = config;
   state.puzzle = puzzle;
+  state.blockerOf = puzzle.blocked.slice();
   state.cats = new Array(config.size * config.size).fill(false);
   state.catCount = 0;
   state.status = "playing";
@@ -563,6 +606,7 @@ function startGame(config) {
   state.earnedStars = 0;
   state.startedAt = Date.now();
   state.elapsedMs = 0;
+  ui.newGridBtn.classList.add("hidden");
 
   startTimer();
 
@@ -598,9 +642,10 @@ function generatePuzzle(config) {
       solution,
       rng,
       config.irregularity,
-      config.singletonBias
+      config.singletonBias,
+      config.shapeStyle
     );
-    const blocked = addBlockers(config.size, solution, config.blockers, rng);
+    const blocked = addBlockers(config.size, solution, config.blockers, rng, config.blockerMode);
 
     const puzzle = {
       size: config.size,
@@ -644,8 +689,8 @@ function validatePuzzle(puzzle, config) {
 function fallbackPuzzle(config) {
   const rng = makeRng(config.seed + ":fallback");
   const solution = fallbackPlacement(config);
-  const regionOf = growRegions(config.size, config.regionCount, solution, rng, 0.1, 0);
-  const blocked = addBlockers(config.size, solution, 0, rng);
+  const regionOf = growRegions(config.size, config.regionCount, solution, rng, 0.1, 0, config.shapeStyle);
+  const blocked = addBlockers(config.size, solution, 0, rng, "none");
 
   return {
     size: config.size,
@@ -761,7 +806,7 @@ function classicFallbackColumns(size) {
   return [...evens, ...odds];
 }
 
-function growRegions(size, regionCount, solution, rng, irregularity = 0, singletonBias = 0) {
+function growRegions(size, regionCount, solution, rng, irregularity = 0, singletonBias = 0, shapeStyle = "organic") {
   const total = size * size;
   const regionOf = new Array(total).fill(-1);
   const sizes = new Array(regionCount).fill(1);
@@ -848,7 +893,7 @@ function growRegions(size, regionCount, solution, rng, irregularity = 0, singlet
     }
 
     const options = [...frontiers[regionId]];
-    const cell = options[Math.floor(rng() * options.length)];
+    const cell = pickRegionGrowthCell(options, regionId, regionOf, size, rng, shapeStyle);
 
     frontiers[regionId].delete(cell);
     regionOf[cell] = regionId;
@@ -865,9 +910,32 @@ function growRegions(size, regionCount, solution, rng, irregularity = 0, singlet
   return regionOf;
 }
 
-function addBlockers(size, solution, blockerCount, rng) {
+function pickRegionGrowthCell(options, regionId, regionOf, size, rng, shapeStyle) {
+  if (options.length === 1) {
+    return options[0];
+  }
+
+  const scored = options.map((cell) => {
+    const sameRegionNeighbors = neighbors4(cell, size).filter((n) => regionOf[n] === regionId).length;
+    return { cell, sameRegionNeighbors };
+  });
+
+  if (shapeStyle === "chunky") {
+    scored.sort((a, b) => b.sameRegionNeighbors - a.sameRegionNeighbors);
+    return scored[0].cell;
+  }
+
+  if (shapeStyle === "snaky") {
+    scored.sort((a, b) => a.sameRegionNeighbors - b.sameRegionNeighbors);
+    return scored[0].cell;
+  }
+
+  return scored[Math.floor(rng() * scored.length)].cell;
+}
+
+function addBlockers(size, solution, blockerCount, rng, blockerMode = "none") {
   const total = size * size;
-  const blocked = new Array(total).fill(false);
+  const blocked = new Array(total).fill(null);
   const solutionSet = new Set(solution);
   const candidates = [];
 
@@ -881,7 +949,7 @@ function addBlockers(size, solution, blockerCount, rng) {
   const safeCount = Math.min(blockerCount, shuffled.length);
 
   for (let i = 0; i < safeCount; i++) {
-    blocked[shuffled[i]] = true;
+    blocked[shuffled[i]] = blockerMode === "mixed" && i % 2 === 1 ? "fragile" : "solid";
   }
 
   return blocked;
@@ -910,11 +978,12 @@ function renderBoard() {
 
     const regionId = puzzle.regionOf[i];
     const color = puzzle.colorOfRegion[regionId];
+    const blockerType = state.blockerOf[i];
     cell.style.backgroundColor = color;
 
-    if (puzzle.blocked[i]) {
-      cell.classList.add("blocked");
-      cell.setAttribute("aria-label", `Blocked cell, region ${regionId + 1}`);
+    if (blockerType) {
+      cell.classList.add("blocked", `blocked-${blockerType}`);
+      cell.setAttribute("aria-label", `${blockerType} blocked cell, region ${regionId + 1}`);
     } else {
       cell.setAttribute("aria-label", `Empty cell, region ${regionId + 1}`);
     }
@@ -937,6 +1006,13 @@ function renderBoard() {
 
 function onCellClick(index) {
   if (state.status === "won") {
+    return;
+  }
+
+  if (state.blockerOf[index] === "fragile") {
+    state.blockerOf[index] = null;
+    renderBoard();
+    setStatus("Fragile blocker cleared.", "");
     return;
   }
 
@@ -972,6 +1048,9 @@ function onCellClick(index) {
     updateStats();
     setStatus(`You solved it in ${formatDuration(state.elapsedMs)}. Purrfect!`, "win");
     handleSolvedGame().then(() => {
+      if (state.config.mode === "round") {
+        ui.newGridBtn.classList.remove("hidden");
+      }
       maybeScheduleCampaignAutoAdvance();
     }).catch(() => {
       setStatus("Solved, but could not persist progress.", "warn");
@@ -988,7 +1067,7 @@ function canPlaceCat(cell, currentState) {
   const config = currentState.config;
   const size = puzzle.size;
 
-  if (puzzle.blocked[cell]) {
+  if (currentState.blockerOf[cell]) {
     return { ok: false, reason: "blocked" };
   }
 
@@ -1025,6 +1104,7 @@ function canPlaceCat(cell, currentState) {
 }
 
 function checkBoard(cats, puzzle, config) {
+  const blockerOf = state.blockerOf;
   const size = puzzle.size;
   const total = size * size;
 
@@ -1039,7 +1119,7 @@ function checkBoard(cats, puzzle, config) {
 
     catCells.push(i);
 
-    if (puzzle.blocked[i]) {
+    if (blockerOf[i]) {
       errors.push("Cat placed on blocked cell");
     }
 
