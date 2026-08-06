@@ -114,11 +114,15 @@ h1 {
 }
 
 .rules {
-  grid-column: 9 / -1;
+  grid-column: 9 / 13;
+}
+
+.leaderboard {
+  grid-column: 1 / 5;
 }
 
 .board-panel {
-  grid-column: 1 / -1;
+  grid-column: 5 / -1;
 }
 
 .mode-row {
@@ -205,6 +209,24 @@ input {
   margin: 0.2rem 0 0;
   padding-left: 1.1rem;
   color: var(--ink-muted);
+}
+
+.leaderboard-label {
+  margin: 0.2rem 0 0.5rem;
+  color: var(--ink-muted);
+  font-size: 0.9rem;
+}
+
+.leaderboard-list {
+  margin: 0;
+  padding-left: 1.25rem;
+  display: grid;
+  gap: 0.3rem;
+}
+
+.leaderboard-list li {
+  color: #6e3b12;
+  font-weight: 600;
 }
 
 .board-tools {

@@ -33,6 +33,7 @@ const state = {
   elapsedMs: 0,
   timerId: null,
   bestMs: null,
+  topTimes: [],
   campaignUnlockedLevel: 1,
   solverMode: false,
   solverCandidates: new Map()
@@ -50,6 +51,8 @@ const ui = {
   statBest: document.getElementById("stat-best"),
   statUnlocked: document.getElementById("stat-unlocked"),
   rulesList: document.getElementById("rules-list"),
+  leaderboardLabel: document.getElementById("leaderboard-label"),
+  leaderboardList: document.getElementById("leaderboard-list"),
 
   modeRound: document.getElementById("mode-round"),
   modeCampaign: document.getElementById("mode-campaign"),
@@ -308,6 +311,7 @@ function startGame(config) {
   state.history = [];
   state.solverCandidates = new Map();
   state.bestMs = null;
+  state.topTimes = [];
   state.startedAt = Date.now();
   state.elapsedMs = 0;
 
@@ -316,7 +320,10 @@ function startGame(config) {
   renderBoard();
   updateStats();
   renderRules();
-  refreshBestScore();
+  renderLeaderboard();
+  refreshBestScore().catch(() => {
+    setStatus("Could not load highscores from IndexedDB.", "warn");
+  });
 
   const modeLabel = config.mode === "campaign" ? `Campaign L${config.level}` : "Round";
   setStatus(`${modeLabel} ready. Place ${config.regionCount} cats.`, "");
@@ -1054,7 +1061,9 @@ async function refreshBestScore() {
   const key = buildScoreKey(state.config);
   const record = await getScore(key);
   state.bestMs = record ? Number(record.bestMs) : null;
+  state.topTimes = record && Array.isArray(record.topTimes) ? record.topTimes.slice(0, 5).map(Number) : [];
   updateStats();
+  renderLeaderboard();
 }
 
 async function saveBestScoreForCurrentConfig(elapsedMs) {
@@ -1064,7 +1073,14 @@ async function saveBestScoreForCurrentConfig(elapsedMs) {
 
   const key = buildScoreKey(state.config);
   const current = await getScore(key);
-  const bestMs = current ? Math.min(Number(current.bestMs), elapsedMs) : elapsedMs;
+  const previous = current && Array.isArray(current.topTimes) ? current.topTimes.map(Number) : [];
+  const nextTopTimes = previous
+    .concat(elapsedMs)
+    .filter((v) => Number.isFinite(v) && v >= 0)
+    .sort((a, b) => a - b)
+    .slice(0, 5);
+  const bestMs = nextTopTimes.length > 0 ? nextTopTimes[0] : elapsedMs;
+  const attempts = current && Number.isFinite(Number(current.attempts)) ? Number(current.attempts) + 1 : 1;
 
   await putScore({
     key,
@@ -1073,8 +1089,40 @@ async function saveBestScoreForCurrentConfig(elapsedMs) {
     size: state.config.size,
     regionCount: state.config.regionCount,
     bestMs,
+    topTimes: nextTopTimes,
+    attempts,
     updatedAt: Date.now()
   });
+}
+
+function getLeaderboardLabel(config) {
+  if (config.mode === "campaign") {
+    return `Campaign level ${config.level}`;
+  }
+
+  return `Round ${config.size}x${config.size}, ${config.regionCount} cats`;
+}
+
+function renderLeaderboard() {
+  if (!state.config || !ui.leaderboardList || !ui.leaderboardLabel) {
+    return;
+  }
+
+  ui.leaderboardLabel.textContent = getLeaderboardLabel(state.config);
+  ui.leaderboardList.innerHTML = "";
+
+  if (state.topTimes.length === 0) {
+    const li = document.createElement("li");
+    li.textContent = "No completed runs yet";
+    ui.leaderboardList.append(li);
+    return;
+  }
+
+  for (const time of state.topTimes) {
+    const li = document.createElement("li");
+    li.textContent = formatDuration(time);
+    ui.leaderboardList.append(li);
+  }
 }
 
 function formatDuration(ms) {
