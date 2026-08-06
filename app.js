@@ -36,7 +36,9 @@ const state = {
   topTimes: [],
   campaignUnlockedLevel: 1,
   solverMode: false,
-  solverCandidates: new Map()
+  solverCandidates: new Map(),
+  settingsOpen: false,
+  infoOpen: false
 };
 
 const ui = {
@@ -56,6 +58,12 @@ const ui = {
 
   modeRound: document.getElementById("mode-round"),
   modeCampaign: document.getElementById("mode-campaign"),
+  toggleSettings: document.getElementById("toggle-settings"),
+  toggleInfo: document.getElementById("toggle-info"),
+  settingsPanel: document.getElementById("settings-panel"),
+  statsPanel: document.getElementById("stats-panel"),
+  rulesPanel: document.getElementById("rules-panel"),
+  leaderboardPanel: document.getElementById("leaderboard-panel"),
   roundControls: document.getElementById("round-controls"),
   campaignControls: document.getElementById("campaign-controls"),
 
@@ -118,6 +126,16 @@ function bindEvents() {
     renderMode();
   });
 
+  ui.toggleSettings.addEventListener("click", () => {
+    state.settingsOpen = !state.settingsOpen;
+    renderPanelVisibility();
+  });
+
+  ui.toggleInfo.addEventListener("click", () => {
+    state.infoOpen = !state.infoOpen;
+    renderPanelVisibility();
+  });
+
   ui.newRoundBtn.addEventListener("click", () => {
     loadRound();
   });
@@ -177,6 +195,16 @@ function renderMode() {
     ui.levelInput.value = String(level);
     loadCampaignLevel(level);
   }
+}
+
+function renderPanelVisibility() {
+  ui.settingsPanel.classList.toggle("hidden", !state.settingsOpen);
+  ui.statsPanel.classList.toggle("hidden", !state.infoOpen);
+  ui.rulesPanel.classList.toggle("hidden", !state.infoOpen);
+  ui.leaderboardPanel.classList.toggle("hidden", !state.infoOpen);
+
+  ui.toggleSettings.classList.toggle("active", state.settingsOpen);
+  ui.toggleInfo.classList.toggle("active", state.infoOpen);
 }
 
 function syncRegionSelectOptions() {

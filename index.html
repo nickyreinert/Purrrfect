@@ -16,18 +16,24 @@
     <div class="bg-shape bg-shape-b" aria-hidden="true"></div>
 
     <main class="app-shell">
+      <div class="topbar">
+        <div class="mode-switch" aria-label="Game mode switch">
+          <button id="mode-round" class="tab active" type="button">🎯 Single</button>
+          <button id="mode-campaign" class="tab" type="button">🗺️ Campaign</button>
+        </div>
+        <div class="panel-switches" aria-label="Panel toggles">
+          <button id="toggle-settings" class="ghost" type="button">⚙️ Settings</button>
+          <button id="toggle-info" class="ghost" type="button">📣 Info</button>
+        </div>
+      </div>
+
       <header class="hero">
         <p class="eyebrow">PWA Puzzle</p>
         <h1>Purrfect Regions</h1>
         <p class="subtitle">A Meowdoku-style logic game with campaign and round mode.</p>
       </header>
 
-      <section class="panel controls" aria-label="Game controls">
-        <div class="mode-row">
-          <button id="mode-round" class="tab active" type="button">Round</button>
-          <button id="mode-campaign" class="tab" type="button">Campaign</button>
-        </div>
-
+      <section id="settings-panel" class="panel controls hidden" aria-label="Game controls">
         <div id="round-controls" class="control-grid">
           <label>
             Board size
@@ -50,7 +56,7 @@
         </div>
       </section>
 
-      <section class="panel stats" aria-label="Game stats">
+      <section id="stats-panel" class="panel stats hidden" aria-label="Game stats">
         <p><strong>Mode:</strong> <span id="stat-mode">Round</span></p>
         <p><strong>Board:</strong> <span id="stat-size">3x3</span></p>
         <p><strong>Cats to place:</strong> <span id="stat-cats">1</span></p>
@@ -61,12 +67,12 @@
         <p><strong>Campaign unlocked:</strong> <span id="stat-unlocked">1</span></p>
       </section>
 
-      <section class="panel rules" aria-label="Rules helper">
+      <section id="rules-panel" class="panel rules hidden" aria-label="Rules helper">
         <h2>Rules</h2>
         <ul id="rules-list"></ul>
       </section>
 
-      <section class="panel leaderboard" aria-label="Top times">
+      <section id="leaderboard-panel" class="panel leaderboard hidden" aria-label="Top times">
         <h2>Top 5</h2>
         <p id="leaderboard-label" class="leaderboard-label">Current setup</p>
         <ol id="leaderboard-list" class="leaderboard-list"></ol>
@@ -74,10 +80,10 @@
 
       <section class="panel board-panel" aria-label="Puzzle board">
         <div class="board-tools">
-          <button id="hint-btn" class="ghost" type="button">Hint</button>
-          <button id="solver-btn" class="ghost" type="button">Solver Candidates</button>
-          <button id="check-btn" class="ghost" type="button">Check</button>
-          <button id="reset-btn" class="ghost" type="button">Reset</button>
+          <button id="hint-btn" class="ghost" type="button">💡 Hint</button>
+          <button id="solver-btn" class="ghost" type="button">🧠 Solver</button>
+          <button id="check-btn" class="ghost" type="button">✅ Check</button>
+          <button id="reset-btn" class="ghost" type="button">♻️ Reset</button>
         </div>
         <div id="board" class="board" role="grid" aria-label="Puzzle grid"></div>
         <p id="status" class="status" aria-live="polite">Build a puzzle to start.</p>

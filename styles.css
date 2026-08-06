@@ -26,6 +26,10 @@ body {
     radial-gradient(circle at 85% 20%, #ffb486, transparent 34%),
     linear-gradient(140deg, var(--bg) 0%, #fff0d1 35%, #ffdca1 100%);
   min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
 }
 
 .bg-shape {
@@ -55,13 +59,29 @@ body {
 .app-shell {
   position: relative;
   z-index: 1;
-  max-width: 1080px;
+  width: min(980px, 96vw);
   margin: 0 auto;
-  padding: 1.25rem;
-  display: grid;
-  gap: 1rem;
-  grid-template-columns: repeat(12, 1fr);
+  padding: 1.1rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.9rem;
   animation: fadeIn 420ms ease-out;
+}
+
+.topbar {
+  width: min(860px, 100%);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.8rem;
+}
+
+.mode-switch,
+.panel-switches {
+  display: flex;
+  gap: 0.45rem;
+  flex-wrap: wrap;
 }
 
 .hero,
@@ -74,8 +94,9 @@ body {
 }
 
 .hero {
-  grid-column: 1 / -1;
+  width: min(860px, 100%);
   padding: 1.2rem 1.4rem;
+  text-align: center;
 }
 
 .eyebrow {
@@ -102,33 +123,16 @@ h1 {
 }
 
 .panel {
+  width: min(860px, 100%);
   padding: 1rem;
 }
 
 .controls {
-  grid-column: 1 / 6;
-}
-
-.stats {
-  grid-column: 6 / 9;
-}
-
-.rules {
-  grid-column: 9 / 13;
-}
-
-.leaderboard {
-  grid-column: 1 / 5;
+  max-width: 680px;
 }
 
 .board-panel {
-  grid-column: 5 / -1;
-}
-
-.mode-row {
-  display: flex;
-  gap: 0.5rem;
-  margin-bottom: 0.9rem;
+  max-width: 760px;
 }
 
 .tab,
@@ -232,6 +236,7 @@ input {
 .board-tools {
   display: flex;
   flex-wrap: wrap;
+  justify-content: center;
   gap: 0.6rem;
   margin-bottom: 0.7rem;
 }
@@ -307,6 +312,22 @@ input {
   color: #6e3b12;
 }
 
+.stats,
+.rules,
+.leaderboard {
+  text-align: center;
+}
+
+.stats p {
+  margin: 0.35rem 0;
+}
+
+.rules ul,
+.leaderboard-list {
+  display: inline-grid;
+  text-align: left;
+}
+
 .status.win {
   color: var(--ok);
 }
@@ -327,10 +348,13 @@ input {
 }
 
 @media (max-width: 880px) {
-  .controls,
-  .stats,
-  .rules,
-  .board-panel {
-    grid-column: 1 / -1;
+  .topbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .mode-switch,
+  .panel-switches {
+    justify-content: center;
   }
 }
