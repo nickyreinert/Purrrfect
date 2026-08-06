@@ -42,6 +42,7 @@ const state = {
   statsOpen: false,
   autoAdvanceTimerId: null,
   selectedRoundSize: 5,
+  selectedRoundSingletons: 2,
   selectedRoundDifficulty: "normal",
   selectedCampaignLevel: 1
 };
@@ -78,6 +79,9 @@ const ui = {
 
   sizeOptions: document.getElementById("size-options"),
   difficultyOptions: document.getElementById("difficulty-options"),
+  difficultySlider: document.getElementById("difficulty-slider"),
+  difficultyHelp: document.getElementById("difficulty-help"),
+  difficultyReadout: document.getElementById("difficulty-readout"),
   newRoundBtn: document.getElementById("new-round"),
 
   levelDownBtn: document.getElementById("level-down"),
@@ -123,14 +127,22 @@ function buildRoundPickers() {
     button.dataset.size = String(size);
     button.addEventListener("click", () => {
       state.selectedRoundSize = size;
+      state.selectedRoundSingletons = clamp(
+        state.selectedRoundSingletons,
+        0,
+        getMaxSingletonRegions(size)
+      );
+      syncRoundDifficultySlider();
       renderRoundPickerState();
     });
     ui.sizeOptions.append(button);
   }
 
   state.selectedRoundSize = 5;
+  state.selectedRoundSingletons = getPresetSingletons(state.selectedRoundSize, "normal");
   state.selectedRoundDifficulty = "normal";
   syncDifficultyButtons();
+  syncRoundDifficultySlider();
   renderRoundPickerState();
 }
 
@@ -183,6 +195,19 @@ function bindEvents() {
 
   ui.newRoundBtn.addEventListener("click", () => {
     loadRound();
+  });
+
+  ui.difficultySlider.addEventListener("input", () => {
+    state.selectedRoundSingletons = clamp(
+      Number(ui.difficultySlider.value),
+      0,
+      getMaxSingletonRegions(state.selectedRoundSize)
+    );
+    state.selectedRoundDifficulty = getDifficultyFromSingletons(
+      state.selectedRoundSize,
+      state.selectedRoundSingletons
+    );
+    renderRoundPickerState();
   });
 
   ui.loadLevelBtn.addEventListener("click", () => {
@@ -296,11 +321,27 @@ function syncDifficultyButtons() {
     button.textContent = option.label;
     button.dataset.difficulty = option.key;
     button.addEventListener("click", () => {
-      state.selectedRoundDifficulty = option.key;
+      applyRoundDifficultyPreset(option.key);
       renderRoundPickerState();
     });
     ui.difficultyOptions.append(button);
   }
+}
+
+function applyRoundDifficultyPreset(preset) {
+  state.selectedRoundDifficulty = preset;
+  state.selectedRoundSingletons = getPresetSingletons(state.selectedRoundSize, preset);
+  syncRoundDifficultySlider();
+}
+
+function syncRoundDifficultySlider() {
+  const maxSingletons = getMaxSingletonRegions(state.selectedRoundSize);
+  ui.difficultySlider.max = String(maxSingletons);
+  state.selectedRoundSingletons = clamp(state.selectedRoundSingletons, 0, maxSingletons);
+  ui.difficultySlider.value = String(state.selectedRoundSingletons);
+  state.selectedRoundDifficulty = getDifficultyFromSingletons(state.selectedRoundSize, state.selectedRoundSingletons);
+  ui.difficultyHelp.textContent = `Tiny one-cell regions can go from 0 to ${maxSingletons} on this board.`;
+  ui.difficultyReadout.textContent = `${state.selectedRoundSingletons} tiny region${state.selectedRoundSingletons === 1 ? "" : "s"}`;
 }
 
 function renderRoundPickerState() {
@@ -313,11 +354,13 @@ function renderRoundPickerState() {
     const isActive = el.dataset.difficulty === state.selectedRoundDifficulty;
     el.classList.toggle("active", isActive);
   }
+
+  syncRoundDifficultySlider();
 }
 
 function loadRound() {
   const size = state.selectedRoundSize;
-  const config = buildRoundConfig(size, state.selectedRoundDifficulty);
+  const config = buildRoundConfig(size, state.selectedRoundSingletons);
   startGame(config);
 }
 
@@ -333,11 +376,13 @@ function loadCampaignLevel(level) {
   }
 }
 
-function buildRoundConfig(size, difficulty) {
+function buildRoundConfig(size, singletonCount) {
   const normalizedSize = clamp(size, 2, 9);
-  const normalizedDifficulty = ["easy", "normal", "hard"].includes(difficulty) ? difficulty : "normal";
-  const regionCount = getRegionCountForDifficulty(normalizedSize, normalizedDifficulty);
-  const profile = getDifficultyProfile(normalizedDifficulty, null);
+  const maxSingletons = getMaxSingletonRegions(normalizedSize);
+  const normalizedSingletonCount = clamp(singletonCount, 0, maxSingletons);
+  const difficulty = getDifficultyFromSingletons(normalizedSize, normalizedSingletonCount);
+  const singletonBias = maxSingletons === 0 ? 0 : normalizedSingletonCount / maxSingletons;
+  const irregularity = 0.18 + (1 - singletonBias) * 0.42;
 
   let allowDiagonalTouch = false;
   if (normalizedSize <= 3) {
@@ -347,13 +392,14 @@ function buildRoundConfig(size, difficulty) {
   return normalizeConfig({
     mode: "round",
     level: null,
-    difficulty: normalizedDifficulty,
+    difficulty,
     size: normalizedSize,
-    regionCount,
+    regionCount: normalizedSize,
     allowDiagonalTouch,
-    blockers: profile.blockers,
-    irregularity: profile.irregularity,
-    singletonBias: profile.singletonBias,
+    blockers: 0,
+    irregularity,
+    singletonBias,
+    singletonCount: normalizedSingletonCount,
     seed: "round:" + Math.random().toString(36).slice(2)
   });
 }
@@ -403,19 +449,36 @@ function getCampaignConfig(level) {
   });
 }
 
-function getRegionCountForDifficulty(size, difficulty) {
-  if (size === 2) return 2;
-  if (size === 3) return 3;
+function getMaxSingletonRegions(size) {
+  return Math.max(0, size - 1);
+}
 
-  if (difficulty === "easy") {
-    return clamp(Math.floor(size * 0.6), 2, size);
+function getPresetSingletons(size, preset) {
+  const maxSingletons = getMaxSingletonRegions(size);
+
+  if (preset === "easy") {
+    return maxSingletons;
   }
 
-  if (difficulty === "hard") {
-    return size;
+  if (preset === "hard") {
+    return 0;
   }
 
-  return clamp(Math.floor(size * 0.75), 2, size);
+  return Math.round(maxSingletons / 2);
+}
+
+function getDifficultyFromSingletons(size, singletonCount) {
+  const maxSingletons = getMaxSingletonRegions(size);
+
+  if (singletonCount <= 0) {
+    return "hard";
+  }
+
+  if (singletonCount >= maxSingletons) {
+    return "easy";
+  }
+
+  return "normal";
 }
 
 function getDifficultyProfile(difficulty, level) {
@@ -449,6 +512,8 @@ function normalizeConfig(config) {
   const size = clamp(config.size, 2, 9);
   const regionCount = clamp(config.regionCount, 1, size);
   const difficulty = ["easy", "normal", "hard"].includes(config.difficulty) ? config.difficulty : "normal";
+  const maxSingletons = getMaxSingletonRegions(size);
+  const singletonCount = clamp(Number(config.singletonCount) || 0, 0, maxSingletons);
 
   let allowDiagonalTouch = !!config.allowDiagonalTouch;
 
@@ -469,10 +534,11 @@ function normalizeConfig(config) {
     difficulty,
     size,
     regionCount,
+    singletonCount,
     allowDiagonalTouch,
     blockers: Math.max(0, Math.floor(config.blockers || 0)),
     irregularity: clamp(Number(config.irregularity) || 0, 0, 1),
-    singletonBias: clamp(Number(config.singletonBias) || 0, 0, 0.95)
+    singletonBias: clamp(Number(config.singletonBias) || 0, 0, 1)
   };
 }
 
@@ -1075,6 +1141,10 @@ function renderRules() {
   lines.push("No row or column may have more than one cat.");
   lines.push(`Difficulty: ${prettyDifficulty(config.difficulty)}.`);
 
+  if (config.mode === "round") {
+    lines.push(`Tiny one-cell regions: ${config.singletonCount} of ${getMaxSingletonRegions(config.size)} possible.`);
+  }
+
   if (config.allowDiagonalTouch && config.size <= 3) {
     lines.push("On this tiny board, diagonal touching is allowed.");
   } else {
@@ -1313,7 +1383,7 @@ function buildScoreKey(config) {
     return `campaign:${config.level}`;
   }
 
-  return `round:${config.size}:${config.regionCount}:${config.difficulty}:${config.allowDiagonalTouch ? 1 : 0}:${config.blockers}`;
+  return `round:${config.size}:${config.regionCount}:${config.singletonCount}:${config.allowDiagonalTouch ? 1 : 0}:${config.blockers}`;
 }
 
 async function refreshBestScore() {
@@ -1363,7 +1433,7 @@ function getLeaderboardLabel(config) {
     return `Campaign level ${config.level} (${prettyDifficulty(config.difficulty)})`;
   }
 
-  return `Single ${config.size}x${config.size}, ${config.regionCount} cats (${prettyDifficulty(config.difficulty)})`;
+  return `Single ${config.size}x${config.size}, ${config.regionCount} cats, ${config.singletonCount} tiny regions`;
 }
 
 function prettyDifficulty(difficulty) {
