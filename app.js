@@ -14,6 +14,7 @@ const DB_NAME = "purrrfect_regions_db";
 const DB_VERSION = 1;
 const STORE_META = "meta";
 const STORE_SCORES = "scores";
+const TUTORIAL_COOKIE = "purrrfect_tutorial_done";
 
 const dbState = {
   promise: null
@@ -54,7 +55,11 @@ const state = {
     maxChecks: null,
     solverDisabled: false
   },
-  selectedCampaignLevel: 1
+  selectedCampaignLevel: 1,
+  tutorial: {
+    active: false,
+    step: 0
+  }
 };
 
 const ui = {
@@ -79,6 +84,10 @@ const ui = {
   rulesList: document.getElementById("rules-list"),
   leaderboardLabel: document.getElementById("leaderboard-label"),
   leaderboardList: document.getElementById("leaderboard-list"),
+  tutorialOverlay: document.getElementById("tutorial-overlay"),
+  tutorialStep: document.getElementById("tutorial-step"),
+  tutorialText: document.getElementById("tutorial-text"),
+  tutorialSkip: document.getElementById("tutorial-skip"),
 
   modeRound: document.getElementById("mode-round"),
   modeCampaign: document.getElementById("mode-campaign"),
@@ -108,6 +117,7 @@ const ui = {
   campaignLockNote: document.getElementById("campaign-lock-note"),
   loadLevelBtn: document.getElementById("load-level"),
   nextLevelBtn: document.getElementById("next-level"),
+  restartTutorialBtn: document.getElementById("restart-tutorial"),
 
   hintBtn: document.getElementById("hint-btn"),
   solverBtn: document.getElementById("solver-btn"),
@@ -134,6 +144,10 @@ async function init() {
   updateLevelDisplay();
   renderCampaignBadges();
   renderPanelVisibility();
+
+  if (!getCookie(TUTORIAL_COOKIE)) {
+    startTutorial();
+  }
 
   loadRound();
 }
@@ -208,6 +222,10 @@ function bindEvents() {
     closeAllSidebars();
     state.settingsOpen = next;
     renderPanelVisibility();
+
+    if (state.tutorial.active && state.tutorial.step === 0 && next) {
+      advanceTutorial();
+    }
   });
 
   ui.closeSettings.addEventListener("click", () => {
@@ -241,6 +259,10 @@ function bindEvents() {
 
   ui.newRoundBtn.addEventListener("click", () => {
     loadRound();
+
+    if (state.tutorial.active && state.tutorial.step === 1) {
+      advanceTutorial();
+    }
   });
 
   ui.difficultySlider.addEventListener("input", () => {
@@ -324,6 +346,14 @@ function bindEvents() {
   ui.newGridBtn.addEventListener("click", () => {
     loadRound();
   });
+
+  ui.restartTutorialBtn.addEventListener("click", () => {
+    startTutorial(true);
+  });
+
+  ui.tutorialSkip.addEventListener("click", () => {
+    endTutorial(true);
+  });
 }
 
 function renderMode() {
@@ -388,6 +418,7 @@ function renderPanelVisibility() {
   ui.toggleSettings.classList.toggle("active", state.settingsOpen);
   ui.toggleInfo.classList.toggle("active", state.infoOpen);
   ui.toggleStats.classList.toggle("active", state.statsOpen);
+  updateTutorialUI();
 }
 
 function closeAllSidebars() {

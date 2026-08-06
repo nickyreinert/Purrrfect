@@ -115,6 +115,7 @@
         </div>
         <h2>Rules</h2>
         <ul id="rules-list"></ul>
+        <button id="restart-tutorial" class="ghost" type="button">🎓 Restart tutorial</button>
       </section>
 
       <section class="panel board-panel" aria-label="Puzzle board">
@@ -133,6 +134,16 @@
         </div>
       </section>
     </main>
+
+    <div id="tutorial-overlay" class="tutorial-overlay hidden" aria-live="polite">
+      <div class="tutorial-card">
+        <p id="tutorial-step" class="tutorial-step">Tutorial</p>
+        <p id="tutorial-text" class="tutorial-text">Follow the hints to learn the basics.</p>
+        <div class="tutorial-actions">
+          <button id="tutorial-skip" class="ghost" type="button">Skip</button>
+        </div>
+      </div>
+    </div>
 
     <script src="app.js" defer></script>
   </body>

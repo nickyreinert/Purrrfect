@@ -235,6 +235,56 @@ button {
   color: #fff;
 }
 
+.tutorial-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 120;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 1rem;
+  background: rgba(31, 26, 18, 0.18);
+  pointer-events: none;
+}
+
+.tutorial-card {
+  width: min(460px, 100%);
+  background: rgba(255, 248, 233, 0.98);
+  border: 1px solid rgba(184, 131, 73, 0.34);
+  border-radius: 18px;
+  box-shadow: 0 20px 44px rgba(45, 29, 5, 0.2);
+  padding: 1rem;
+  pointer-events: auto;
+}
+
+.tutorial-step {
+  margin: 0 0 0.2rem;
+  font-size: 0.8rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #8f5f2f;
+  font-weight: 700;
+}
+
+.tutorial-text {
+  margin: 0;
+  color: #6f4620;
+  font-size: 1rem;
+}
+
+.tutorial-actions {
+  margin-top: 0.8rem;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.tutorial-focus {
+  position: relative;
+  z-index: 121;
+  box-shadow: 0 0 0 5px rgba(255, 255, 255, 0.96), 0 0 0 10px rgba(255, 111, 60, 0.36) !important;
+  animation: tutorialPulse 1s ease-in-out infinite;
+}
+
 .slider-wrap {
   display: grid;
   gap: 0.45rem;
@@ -706,6 +756,18 @@ button:disabled,
   100% {
     opacity: 0.72;
     transform: scale(0.985);
+  }
+}
+
+@keyframes tutorialPulse {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.03);
+  }
+  100% {
+    transform: scale(1);
   }
 }
 
