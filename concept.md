@@ -1,5 +1,5 @@
 # Updated Game Concept + Implementation Spec  
-## **Purrfect Regions** — corrected version
+## **Purrfect Space **
 
 Use this version as the authoritative concept.  
 It corrects the earlier interpretation and aligns with your rules:

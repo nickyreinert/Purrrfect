@@ -38,12 +38,17 @@ const state = {
   solverMode: false,
   solverCandidates: new Map(),
   settingsOpen: false,
-  infoOpen: false
+  infoOpen: false,
+  autoAdvanceTimerId: null,
+  selectedRoundSize: 5,
+  selectedRoundDifficulty: "normal",
+  selectedCampaignLevel: 1
 };
 
 const ui = {
   board: document.getElementById("board"),
   status: document.getElementById("status"),
+  nextAutoBtn: document.getElementById("next-auto-btn"),
   statMode: document.getElementById("stat-mode"),
   statSize: document.getElementById("stat-size"),
   statCats: document.getElementById("stat-cats"),
@@ -60,6 +65,7 @@ const ui = {
   modeCampaign: document.getElementById("mode-campaign"),
   toggleSettings: document.getElementById("toggle-settings"),
   toggleInfo: document.getElementById("toggle-info"),
+  closeSettings: document.getElementById("close-settings"),
   settingsPanel: document.getElementById("settings-panel"),
   statsPanel: document.getElementById("stats-panel"),
   rulesPanel: document.getElementById("rules-panel"),
@@ -67,11 +73,13 @@ const ui = {
   roundControls: document.getElementById("round-controls"),
   campaignControls: document.getElementById("campaign-controls"),
 
-  sizeSelect: document.getElementById("size-select"),
-  regionSelect: document.getElementById("region-select"),
+  sizeOptions: document.getElementById("size-options"),
+  difficultyOptions: document.getElementById("difficulty-options"),
   newRoundBtn: document.getElementById("new-round"),
 
-  levelInput: document.getElementById("level-input"),
+  levelDownBtn: document.getElementById("level-down"),
+  levelUpBtn: document.getElementById("level-up"),
+  levelValue: document.getElementById("level-value"),
   loadLevelBtn: document.getElementById("load-level"),
   nextLevelBtn: document.getElementById("next-level"),
 
@@ -86,36 +94,45 @@ init().catch(() => {
 });
 
 async function init() {
-  buildRoundSelectors();
+  buildRoundPickers();
   bindEvents();
   registerServiceWorker();
 
   await initDatabase();
   const storedLevel = await getMeta("campaignUnlockedLevel", 1);
   state.campaignUnlockedLevel = clamp(Number(storedLevel || 1), 1, 100);
+  state.selectedCampaignLevel = state.campaignUnlockedLevel;
   ui.statUnlocked.textContent = String(state.campaignUnlockedLevel);
-  ui.levelInput.value = String(state.campaignUnlockedLevel);
+  updateLevelDisplay();
+  renderPanelVisibility();
 
   loadRound();
 }
 
-function buildRoundSelectors() {
-  for (let size = 3; size <= 9; size++) {
-    const option = document.createElement("option");
-    option.value = String(size);
-    option.textContent = `${size}x${size}`;
-    ui.sizeSelect.append(option);
+function buildRoundPickers() {
+  ui.sizeOptions.innerHTML = "";
+
+  for (let size = 2; size <= 9; size++) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "option-btn";
+    button.textContent = `${size}x${size}`;
+    button.dataset.size = String(size);
+    button.addEventListener("click", () => {
+      state.selectedRoundSize = size;
+      syncRegionOptionButtons();
+      renderRoundPickerState();
+    });
+    ui.sizeOptions.append(button);
   }
 
-  ui.sizeSelect.value = "5";
-  syncRegionSelectOptions();
+  state.selectedRoundSize = 5;
+  state.selectedRoundDifficulty = "normal";
+  syncDifficultyButtons();
+  renderRoundPickerState();
 }
 
 function bindEvents() {
-  ui.sizeSelect.addEventListener("change", () => {
-    syncRegionSelectOptions();
-  });
-
   ui.modeRound.addEventListener("click", () => {
     state.mode = "round";
     renderMode();
@@ -131,6 +148,11 @@ function bindEvents() {
     renderPanelVisibility();
   });
 
+  ui.closeSettings.addEventListener("click", () => {
+    state.settingsOpen = false;
+    renderPanelVisibility();
+  });
+
   ui.toggleInfo.addEventListener("click", () => {
     state.infoOpen = !state.infoOpen;
     renderPanelVisibility();
@@ -141,16 +163,28 @@ function bindEvents() {
   });
 
   ui.loadLevelBtn.addEventListener("click", () => {
-    const level = clamp(Number(ui.levelInput.value || 1), 1, state.campaignUnlockedLevel);
-    ui.levelInput.value = String(level);
+    const level = clamp(state.selectedCampaignLevel, 1, state.campaignUnlockedLevel);
+    state.selectedCampaignLevel = level;
+    updateLevelDisplay();
     loadCampaignLevel(level);
   });
 
   ui.nextLevelBtn.addEventListener("click", () => {
-    const current = clamp(Number(ui.levelInput.value || 1), 1, state.campaignUnlockedLevel);
+    const current = clamp(state.selectedCampaignLevel, 1, state.campaignUnlockedLevel);
     const next = clamp(current + 1, 1, state.campaignUnlockedLevel);
-    ui.levelInput.value = String(next);
+    state.selectedCampaignLevel = next;
+    updateLevelDisplay();
     loadCampaignLevel(next);
+  });
+
+  ui.levelDownBtn.addEventListener("click", () => {
+    state.selectedCampaignLevel = clamp(state.selectedCampaignLevel - 1, 1, state.campaignUnlockedLevel);
+    updateLevelDisplay();
+  });
+
+  ui.levelUpBtn.addEventListener("click", () => {
+    state.selectedCampaignLevel = clamp(state.selectedCampaignLevel + 1, 1, state.campaignUnlockedLevel);
+    updateLevelDisplay();
   });
 
   ui.hintBtn.addEventListener("click", () => {
@@ -170,6 +204,7 @@ function bindEvents() {
 
   ui.resetBtn.addEventListener("click", () => {
     if (!state.puzzle) return;
+    clearAutoAdvance();
     state.cats = new Array(state.puzzle.size * state.puzzle.size).fill(false);
     state.catCount = 0;
     state.status = "playing";
@@ -177,6 +212,10 @@ function bindEvents() {
     renderBoard();
     updateStats();
     setStatus("Board reset.", "");
+  });
+
+  ui.nextAutoBtn.addEventListener("click", () => {
+    advanceToNextCampaignLevel();
   });
 }
 
@@ -191,14 +230,15 @@ function renderMode() {
   if (isRound) {
     loadRound();
   } else {
-    const level = clamp(Number(ui.levelInput.value || 1), 1, state.campaignUnlockedLevel);
-    ui.levelInput.value = String(level);
+    const level = clamp(state.selectedCampaignLevel, 1, state.campaignUnlockedLevel);
+    state.selectedCampaignLevel = level;
+    updateLevelDisplay();
     loadCampaignLevel(level);
   }
 }
 
 function renderPanelVisibility() {
-  ui.settingsPanel.classList.toggle("hidden", !state.settingsOpen);
+  ui.settingsPanel.classList.toggle("open", state.settingsOpen);
   ui.statsPanel.classList.toggle("hidden", !state.infoOpen);
   ui.rulesPanel.classList.toggle("hidden", !state.infoOpen);
   ui.leaderboardPanel.classList.toggle("hidden", !state.infoOpen);
@@ -207,30 +247,55 @@ function renderPanelVisibility() {
   ui.toggleInfo.classList.toggle("active", state.infoOpen);
 }
 
-function syncRegionSelectOptions() {
-  const size = Number(ui.sizeSelect.value);
+function updateLevelDisplay() {
+  ui.levelValue.textContent = String(state.selectedCampaignLevel);
+}
 
-  ui.regionSelect.innerHTML = "";
+function syncDifficultyButtons() {
+  ui.difficultyOptions.innerHTML = "";
 
-  for (let regionCount = 1; regionCount <= size; regionCount++) {
-    const option = document.createElement("option");
-    option.value = String(regionCount);
-    option.textContent = String(regionCount);
-    ui.regionSelect.append(option);
+  const options = [
+    { key: "easy", label: "🐣 Easy" },
+    { key: "normal", label: "🐾 Normal" },
+    { key: "hard", label: "🦁 Hard" }
+  ];
+
+  for (const option of options) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "option-btn";
+    button.textContent = option.label;
+    button.dataset.difficulty = option.key;
+    button.addEventListener("click", () => {
+      state.selectedRoundDifficulty = option.key;
+      renderRoundPickerState();
+    });
+    ui.difficultyOptions.append(button);
+  }
+}
+
+function renderRoundPickerState() {
+  for (const el of ui.sizeOptions.querySelectorAll(".option-btn")) {
+    const isActive = Number(el.dataset.size) === state.selectedRoundSize;
+    el.classList.toggle("active", isActive);
   }
 
-  ui.regionSelect.value = String(Math.min(3, size));
+  for (const el of ui.difficultyOptions.querySelectorAll(".option-btn")) {
+    const isActive = el.dataset.difficulty === state.selectedRoundDifficulty;
+    el.classList.toggle("active", isActive);
+  }
 }
 
 function loadRound() {
-  const size = Number(ui.sizeSelect.value);
-  const regionCount = Number(ui.regionSelect.value);
-  const config = buildRoundConfig(size, regionCount);
+  const size = state.selectedRoundSize;
+  const config = buildRoundConfig(size, state.selectedRoundDifficulty);
   startGame(config);
 }
 
 function loadCampaignLevel(level) {
   const safeLevel = clamp(level, 1, state.campaignUnlockedLevel);
+  state.selectedCampaignLevel = safeLevel;
+  updateLevelDisplay();
   const config = getCampaignConfig(safeLevel);
   startGame(config);
 
@@ -239,47 +304,49 @@ function loadCampaignLevel(level) {
   }
 }
 
-function buildRoundConfig(size, regionCount) {
-  const normalizedSize = clamp(size, 3, 9);
-  const maxRegions = normalizedSize;
-  const normalizedRegionCount = clamp(regionCount, 1, maxRegions);
+function buildRoundConfig(size, difficulty) {
+  const normalizedSize = clamp(size, 2, 9);
+  const normalizedDifficulty = ["easy", "normal", "hard"].includes(difficulty) ? difficulty : "normal";
+  const regionCount = getRegionCountForDifficulty(normalizedSize, normalizedDifficulty);
+  const profile = getDifficultyProfile(normalizedDifficulty, null);
 
   let allowDiagonalTouch = false;
-  if (normalizedSize === 3) {
+  if (normalizedSize <= 3) {
     allowDiagonalTouch = true;
   }
 
   return normalizeConfig({
     mode: "round",
     level: null,
+    difficulty: normalizedDifficulty,
     size: normalizedSize,
-    regionCount: normalizedRegionCount,
+    regionCount,
     allowDiagonalTouch,
-    blockers: 0,
-    irregularity: 0.35,
+    blockers: profile.blockers,
+    irregularity: profile.irregularity,
+    singletonBias: profile.singletonBias,
     seed: "round:" + Math.random().toString(36).slice(2)
   });
 }
 
 function getCampaignConfig(level) {
   const phases = [
-    { start: 1, end: 3, size: 3, regions: 1, allowTouch: false, minBlockers: 0, maxBlockers: 0 },
-    { start: 4, end: 8, size: 3, regions: 2, allowTouch: false, minBlockers: 0, maxBlockers: 0 },
-    { start: 9, end: 12, size: 3, regions: 3, allowTouch: true, minBlockers: 0, maxBlockers: 0 },
+    { start: 1, end: 8, size: 2, regions: 2, allowTouch: true, minBlockers: 0, maxBlockers: 0 },
+    { start: 9, end: 18, size: 3, regions: 3, allowTouch: true, minBlockers: 0, maxBlockers: 0 },
 
-    { start: 13, end: 20, size: 4, regions: 2, allowTouch: false, minBlockers: 0, maxBlockers: 0 },
-    { start: 21, end: 30, size: 4, regions: 3, allowTouch: false, minBlockers: 0, maxBlockers: 0 },
-    { start: 31, end: 42, size: 4, regions: 4, allowTouch: false, minBlockers: 0, maxBlockers: 1 },
+    { start: 19, end: 28, size: 4, regions: 2, allowTouch: false, minBlockers: 0, maxBlockers: 0 },
+    { start: 29, end: 38, size: 4, regions: 3, allowTouch: false, minBlockers: 0, maxBlockers: 0 },
+    { start: 39, end: 50, size: 4, regions: 4, allowTouch: false, minBlockers: 0, maxBlockers: 1 },
 
-    { start: 43, end: 50, size: 5, regions: 3, allowTouch: false, minBlockers: 0, maxBlockers: 1 },
-    { start: 51, end: 60, size: 5, regions: 4, allowTouch: false, minBlockers: 0, maxBlockers: 2 },
-    { start: 61, end: 70, size: 5, regions: 5, allowTouch: false, minBlockers: 0, maxBlockers: 2 },
+    { start: 51, end: 60, size: 5, regions: 3, allowTouch: false, minBlockers: 0, maxBlockers: 1 },
+    { start: 61, end: 70, size: 5, regions: 4, allowTouch: false, minBlockers: 0, maxBlockers: 2 },
+    { start: 71, end: 78, size: 5, regions: 5, allowTouch: false, minBlockers: 0, maxBlockers: 2 },
 
-    { start: 71, end: 78, size: 6, regions: 4, allowTouch: false, minBlockers: 0, maxBlockers: 3 },
-    { start: 79, end: 86, size: 7, regions: 5, allowTouch: false, minBlockers: 0, maxBlockers: 3 },
-    { start: 87, end: 92, size: 8, regions: 6, allowTouch: false, minBlockers: 1, maxBlockers: 4 },
+    { start: 79, end: 84, size: 6, regions: 4, allowTouch: false, minBlockers: 0, maxBlockers: 3 },
+    { start: 85, end: 89, size: 7, regions: 5, allowTouch: false, minBlockers: 0, maxBlockers: 3 },
+    { start: 90, end: 94, size: 8, regions: 6, allowTouch: false, minBlockers: 1, maxBlockers: 4 },
 
-    { start: 93, end: 97, size: 9, regions: 7, allowTouch: false, minBlockers: 1, maxBlockers: 4 },
+    { start: 95, end: 97, size: 9, regions: 7, allowTouch: false, minBlockers: 1, maxBlockers: 4 },
     { start: 98, end: 99, size: 9, regions: 8, allowTouch: false, minBlockers: 2, maxBlockers: 5 },
     { start: 100, end: 100, size: 9, regions: 9, allowTouch: false, minBlockers: 2, maxBlockers: 2 }
   ];
@@ -289,24 +356,75 @@ function getCampaignConfig(level) {
   const span = phase.end - phase.start;
   const t = span === 0 ? 1 : (safeLevel - phase.start) / span;
   const blockers = Math.round(phase.minBlockers + t * (phase.maxBlockers - phase.minBlockers));
+  const difficulty = safeLevel <= 35 ? "easy" : safeLevel <= 75 ? "normal" : "hard";
+  const profile = getDifficultyProfile(difficulty, safeLevel);
 
   return normalizeConfig({
     mode: "campaign",
     level: safeLevel,
+    difficulty,
     size: phase.size,
     regionCount: phase.regions,
     allowDiagonalTouch: phase.allowTouch,
     blockers,
-    irregularity: Math.min(1, safeLevel / 100),
+    irregularity: profile.irregularity,
+    singletonBias: profile.singletonBias,
     seed: "campaign:" + safeLevel
   });
 }
 
+function getRegionCountForDifficulty(size, difficulty) {
+  if (size === 2) return 2;
+  if (size === 3) return 3;
+
+  if (difficulty === "easy") {
+    return clamp(Math.floor(size * 0.6), 2, size);
+  }
+
+  if (difficulty === "hard") {
+    return size;
+  }
+
+  return clamp(Math.floor(size * 0.75), 2, size);
+}
+
+function getDifficultyProfile(difficulty, level) {
+  const isCampaign = Number.isFinite(level);
+  const campaignBoost = isCampaign ? clamp(level / 100, 0, 1) : 0;
+
+  if (difficulty === "easy") {
+    return {
+      irregularity: 0.2 + campaignBoost * 0.08,
+      singletonBias: 0.62 - campaignBoost * 0.15,
+      blockers: 0
+    };
+  }
+
+  if (difficulty === "hard") {
+    return {
+      irregularity: 0.5 + campaignBoost * 0.12,
+      singletonBias: 0,
+      blockers: 0
+    };
+  }
+
+  return {
+    irregularity: 0.34 + campaignBoost * 0.1,
+    singletonBias: 0.24 - campaignBoost * 0.1,
+    blockers: 0
+  };
+}
+
 function normalizeConfig(config) {
-  const size = clamp(config.size, 3, 9);
+  const size = clamp(config.size, 2, 9);
   const regionCount = clamp(config.regionCount, 1, size);
+  const difficulty = ["easy", "normal", "hard"].includes(config.difficulty) ? config.difficulty : "normal";
 
   let allowDiagonalTouch = !!config.allowDiagonalTouch;
+
+  if (size === 2) {
+    allowDiagonalTouch = true;
+  }
 
   if (size >= 4) {
     allowDiagonalTouch = false;
@@ -318,15 +436,18 @@ function normalizeConfig(config) {
 
   return {
     ...config,
+    difficulty,
     size,
     regionCount,
     allowDiagonalTouch,
     blockers: Math.max(0, Math.floor(config.blockers || 0)),
-    irregularity: clamp(Number(config.irregularity) || 0, 0, 1)
+    irregularity: clamp(Number(config.irregularity) || 0, 0, 1),
+    singletonBias: clamp(Number(config.singletonBias) || 0, 0, 0.95)
   };
 }
 
 function startGame(config) {
+  clearAutoAdvance();
   stopTimer();
   const puzzle = generatePuzzle(config);
   state.config = config;
@@ -353,7 +474,9 @@ function startGame(config) {
     setStatus("Could not load highscores from IndexedDB.", "warn");
   });
 
-  const modeLabel = config.mode === "campaign" ? `Campaign L${config.level}` : "Round";
+  const modeLabel = config.mode === "campaign"
+    ? `Campaign L${config.level} (${prettyDifficulty(config.difficulty)})`
+    : `Single (${prettyDifficulty(config.difficulty)})`;
   setStatus(`${modeLabel} ready. Place ${config.regionCount} cats.`, "");
 }
 
@@ -368,7 +491,14 @@ function generatePuzzle(config) {
       continue;
     }
 
-    const regionOf = growRegions(config.size, config.regionCount, solution, rng, config.irregularity);
+    const regionOf = growRegions(
+      config.size,
+      config.regionCount,
+      solution,
+      rng,
+      config.irregularity,
+      config.singletonBias
+    );
     const blocked = addBlockers(config.size, solution, config.blockers, rng);
 
     const puzzle = {
@@ -413,7 +543,7 @@ function validatePuzzle(puzzle, config) {
 function fallbackPuzzle(config) {
   const rng = makeRng(config.seed + ":fallback");
   const solution = fallbackPlacement(config);
-  const regionOf = growRegions(config.size, config.regionCount, solution, rng, 0.1);
+  const regionOf = growRegions(config.size, config.regionCount, solution, rng, 0.1, 0);
   const blocked = addBlockers(config.size, solution, 0, rng);
 
   return {
@@ -481,6 +611,10 @@ function fallbackPlacement(config) {
   const allowTouch = config.allowDiagonalTouch;
   const center = Math.floor(size / 2) * size + Math.floor(size / 2);
 
+  if (size === 2 && catCount === 2) {
+    return [0, 3];
+  }
+
   if (catCount === 1) {
     return [center];
   }
@@ -526,11 +660,13 @@ function classicFallbackColumns(size) {
   return [...evens, ...odds];
 }
 
-function growRegions(size, regionCount, solution, rng, irregularity = 0) {
+function growRegions(size, regionCount, solution, rng, irregularity = 0, singletonBias = 0) {
   const total = size * size;
   const regionOf = new Array(total).fill(-1);
   const sizes = new Array(regionCount).fill(1);
   const frontiers = Array.from({ length: regionCount }, () => new Set());
+  const freezeCount = Math.min(regionCount - 1, Math.max(0, Math.round((regionCount - 1) * singletonBias)));
+  const frozenRegions = new Set(shuffle(range(regionCount), rng).slice(0, freezeCount));
 
   solution.forEach((cell, regionId) => {
     regionOf[cell] = regionId;
@@ -563,6 +699,8 @@ function growRegions(size, regionCount, solution, rng, irregularity = 0) {
     const eligible = [];
 
     for (let regionId = 0; regionId < regionCount; regionId++) {
+      if (frozenRegions.has(regionId)) continue;
+
       if (frontiers[regionId].size > 0 && sizes[regionId] < maxSize) {
         eligible.push(regionId);
       }
@@ -570,6 +708,7 @@ function growRegions(size, regionCount, solution, rng, irregularity = 0) {
 
     if (eligible.length === 0) {
       for (let regionId = 0; regionId < regionCount; regionId++) {
+        if (frozenRegions.has(regionId)) continue;
         if (frontiers[regionId].size > 0) {
           eligible.push(regionId);
         }
@@ -584,7 +723,10 @@ function growRegions(size, regionCount, solution, rng, irregularity = 0) {
           .map((n) => regionOf[n])
           .filter((r) => r !== -1);
 
-        const regionId = adjacent.length > 0 ? adjacent[0] : 0;
+        let regionId = adjacent.find((r) => !frozenRegions.has(r));
+        if (regionId === undefined) {
+          regionId = adjacent.length > 0 ? adjacent[0] : 0;
+        }
 
         regionOf[cell] = regionId;
         sizes[regionId]++;
@@ -727,7 +869,9 @@ function onCellClick(index) {
     stopTimer();
     updateStats();
     setStatus(`You solved it in ${formatDuration(state.elapsedMs)}. Purrfect!`, "win");
-    handleSolvedGame().catch(() => {
+    handleSolvedGame().then(() => {
+      maybeScheduleCampaignAutoAdvance();
+    }).catch(() => {
       setStatus("Solved, but could not persist progress.", "warn");
     });
 
@@ -870,7 +1014,9 @@ function checkCurrentBoard() {
     stopTimer();
     updateStats();
     setStatus(`All constraints pass. You win in ${formatDuration(state.elapsedMs)}.`, "win");
-    handleSolvedGame().catch(() => {
+    handleSolvedGame().then(() => {
+      maybeScheduleCampaignAutoAdvance();
+    }).catch(() => {
       setStatus("Solved, but could not persist progress.", "warn");
     });
     return;
@@ -896,8 +1042,9 @@ function renderRules() {
 
   lines.push("Each color/region needs exactly one cat.");
   lines.push("No row or column may have more than one cat.");
+  lines.push(`Difficulty: ${prettyDifficulty(config.difficulty)}.`);
 
-  if (config.allowDiagonalTouch && config.size === 3) {
+  if (config.allowDiagonalTouch && config.size <= 3) {
     lines.push("On this tiny board, diagonal touching is allowed.");
   } else {
     lines.push("Cats cannot touch, even diagonally.");
@@ -986,7 +1133,9 @@ function giveHint() {
     stopTimer();
     setStatus(`Hint placed the final cat. Solved in ${formatDuration(state.elapsedMs)}.`, "win");
     updateStats();
-    handleSolvedGame().catch(() => {
+    handleSolvedGame().then(() => {
+      maybeScheduleCampaignAutoAdvance();
+    }).catch(() => {
       setStatus("Solved, but could not persist progress.", "warn");
     });
   } else {
@@ -1057,6 +1206,60 @@ function stopTimer() {
   }
 }
 
+function clearAutoAdvance() {
+  if (state.autoAdvanceTimerId) {
+    clearTimeout(state.autoAdvanceTimerId);
+    state.autoAdvanceTimerId = null;
+  }
+
+  ui.nextAutoBtn.classList.add("hidden");
+}
+
+function maybeScheduleCampaignAutoAdvance() {
+  clearAutoAdvance();
+
+  if (state.config.mode !== "campaign") {
+    return;
+  }
+
+  if (state.config.level >= 100) {
+    return;
+  }
+
+  const nextLevel = state.config.level + 1;
+  ui.nextAutoBtn.classList.remove("hidden");
+  setStatus(`Level solved. Jumping to level ${nextLevel} in 5 seconds.`, "win");
+
+  state.autoAdvanceTimerId = setTimeout(() => {
+    advanceToNextCampaignLevel();
+  }, 5000);
+}
+
+function advanceToNextCampaignLevel() {
+  clearAutoAdvance();
+
+  if (!state.config || state.config.mode !== "campaign") {
+    return;
+  }
+
+  const nextLevel = clamp(state.config.level + 1, 1, 100);
+  if (nextLevel === state.config.level) {
+    return;
+  }
+
+  if (nextLevel > state.campaignUnlockedLevel) {
+    state.campaignUnlockedLevel = nextLevel;
+    state.selectedCampaignLevel = nextLevel;
+    setMeta("campaignUnlockedLevel", nextLevel).catch(() => {
+      // Keep gameplay flowing even when persistence fails.
+    });
+  }
+
+  state.selectedCampaignLevel = nextLevel;
+  updateLevelDisplay();
+  loadCampaignLevel(nextLevel);
+}
+
 async function handleSolvedGame() {
   await saveBestScoreForCurrentConfig(state.elapsedMs);
 
@@ -1064,8 +1267,9 @@ async function handleSolvedGame() {
     const newUnlocked = Math.max(state.campaignUnlockedLevel, state.config.level + 1);
     if (newUnlocked !== state.campaignUnlockedLevel) {
       state.campaignUnlockedLevel = newUnlocked;
+      state.selectedCampaignLevel = newUnlocked;
       await setMeta("campaignUnlockedLevel", newUnlocked);
-      ui.levelInput.value = String(newUnlocked);
+      updateLevelDisplay();
       updateStats();
     }
   }
@@ -1078,7 +1282,7 @@ function buildScoreKey(config) {
     return `campaign:${config.level}`;
   }
 
-  return `round:${config.size}:${config.regionCount}:${config.allowDiagonalTouch ? 1 : 0}:${config.blockers}`;
+  return `round:${config.size}:${config.regionCount}:${config.difficulty}:${config.allowDiagonalTouch ? 1 : 0}:${config.blockers}`;
 }
 
 async function refreshBestScore() {
@@ -1125,10 +1329,16 @@ async function saveBestScoreForCurrentConfig(elapsedMs) {
 
 function getLeaderboardLabel(config) {
   if (config.mode === "campaign") {
-    return `Campaign level ${config.level}`;
+    return `Campaign level ${config.level} (${prettyDifficulty(config.difficulty)})`;
   }
 
-  return `Round ${config.size}x${config.size}, ${config.regionCount} cats`;
+  return `Single ${config.size}x${config.size}, ${config.regionCount} cats (${prettyDifficulty(config.difficulty)})`;
+}
+
+function prettyDifficulty(difficulty) {
+  if (difficulty === "easy") return "Easy";
+  if (difficulty === "hard") return "Hard";
+  return "Normal";
 }
 
 function renderLeaderboard() {

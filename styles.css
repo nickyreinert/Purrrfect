@@ -128,7 +128,19 @@ h1 {
 }
 
 .controls {
-  max-width: 680px;
+  position: fixed;
+  right: 1rem;
+  top: 50%;
+  transform: translate(110%, -50%);
+  width: min(360px, calc(100vw - 1.5rem));
+  max-height: calc(100vh - 2rem);
+  overflow-y: auto;
+  z-index: 40;
+  transition: transform 220ms ease;
+}
+
+.controls.open {
+  transform: translate(0, -50%);
 }
 
 .board-panel {
@@ -163,6 +175,66 @@ button {
 .control-grid {
   display: grid;
   gap: 0.7rem;
+}
+
+.settings-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.5rem;
+}
+
+.setting-group {
+  background: rgba(255, 255, 255, 0.55);
+  border: 1px solid rgba(184, 131, 73, 0.34);
+  border-radius: 14px;
+  padding: 0.65rem;
+}
+
+.setting-title {
+  margin: 0 0 0.5rem;
+  font-size: 0.9rem;
+  color: #7d3f0f;
+  font-weight: 700;
+}
+
+.option-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.option-btn {
+  min-width: 2.35rem;
+  padding: 0.45rem 0.55rem;
+  border-radius: 10px;
+  border: 1px solid #e1bb8a;
+  background: #fff7e8;
+  color: #7d3f0f;
+  font-weight: 700;
+}
+
+.option-btn.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.level-stepper {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 0.45rem;
+  align-items: center;
+}
+
+.level-value {
+  text-align: center;
+  font-weight: 800;
+  color: #7d3f0f;
+  background: #fff7e8;
+  border: 1px solid #e1bb8a;
+  border-radius: 10px;
+  padding: 0.4rem 0.6rem;
 }
 
 .control-grid label {
@@ -285,6 +357,8 @@ input {
 
 .cell.cat::before {
   content: "🐈";
+  font-size: 1.45em;
+  line-height: 1;
 }
 
 .cell.candidate {
@@ -336,6 +410,12 @@ input {
   color: var(--warn);
 }
 
+.next-wrap {
+  margin-top: 0.7rem;
+  display: flex;
+  justify-content: center;
+}
+
 @keyframes fadeIn {
   from {
     opacity: 0;
@@ -356,5 +436,11 @@ input {
   .mode-switch,
   .panel-switches {
     justify-content: center;
+  }
+
+  .controls {
+    width: min(420px, calc(100vw - 1rem));
+    right: 0.5rem;
+    max-height: calc(100vh - 1rem);
   }
 }

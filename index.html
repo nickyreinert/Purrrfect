@@ -4,11 +4,11 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#f5b700" />
-    <meta name="description" content="Purrfect Regions - a Meowdoku-style puzzle" />
+    <meta name="description" content="Purrfect Space - competitive cats" />
     <link rel="manifest" href="manifest.webmanifest" />
     <link rel="icon" href="icons/icon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="icons/icon.svg" />
-    <title>Purrfect Regions</title>
+    <title>Purrfect Space</title>
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
@@ -29,30 +29,39 @@
 
       <header class="hero">
         <p class="eyebrow">PWA Puzzle</p>
-        <h1>Purrfect Regions</h1>
-        <p class="subtitle">A Meowdoku-style logic game with campaign and round mode.</p>
+        <h1>Purrfect Space</h1>
+        <p class="subtitle">Competitive cats</p>
       </header>
 
-      <section id="settings-panel" class="panel controls hidden" aria-label="Game controls">
+      <section id="settings-panel" class="panel controls" aria-label="Game controls">
+        <div class="settings-head">
+          <h2>⚙️ Settings</h2>
+          <button id="close-settings" class="ghost" type="button">✖</button>
+        </div>
+
         <div id="round-controls" class="control-grid">
-          <label>
-            Board size
-            <select id="size-select"></select>
-          </label>
-          <label>
-            Regions/Cats
-            <select id="region-select"></select>
-          </label>
-          <button id="new-round" class="cta" type="button">Start Round</button>
+          <div class="setting-group">
+            <p class="setting-title">Board Size</p>
+            <div id="size-options" class="option-grid"></div>
+          </div>
+          <div class="setting-group">
+            <p class="setting-title">Difficulty</p>
+            <div id="difficulty-options" class="option-grid"></div>
+          </div>
+          <button id="new-round" class="cta" type="button">🎮 Start Single</button>
         </div>
 
         <div id="campaign-controls" class="control-grid hidden">
-          <label>
-            Campaign level
-            <input id="level-input" type="number" min="1" max="100" value="1" />
-          </label>
-          <button id="load-level" class="cta" type="button">Load Level</button>
-          <button id="next-level" class="ghost" type="button">Next Level</button>
+          <div class="setting-group">
+            <p class="setting-title">Campaign Level</p>
+            <div class="level-stepper">
+              <button id="level-down" class="ghost" type="button">➖</button>
+              <span id="level-value" class="level-value">1</span>
+              <button id="level-up" class="ghost" type="button">➕</button>
+            </div>
+          </div>
+          <button id="load-level" class="cta" type="button">🧩 Play Level</button>
+          <button id="next-level" class="ghost" type="button">⏭️ Next Level</button>
         </div>
       </section>
 
@@ -87,6 +96,9 @@
         </div>
         <div id="board" class="board" role="grid" aria-label="Puzzle grid"></div>
         <p id="status" class="status" aria-live="polite">Build a puzzle to start.</p>
+        <div class="next-wrap">
+          <button id="next-auto-btn" class="cta hidden" type="button">⏭️ Next Level Now</button>
+        </div>
       </section>
     </main>
 

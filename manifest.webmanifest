@@ -1,7 +1,7 @@
 {
-  "name": "Purrfect Regions",
+  "name": "Purrfect Space",
   "short_name": "Purrfect",
-  "description": "A Meowdoku-style logic puzzle with campaign and round mode.",
+  "description": "Competitive cats",
   "start_url": "./",
   "display": "standalone",
   "background_color": "#fff8e9",
