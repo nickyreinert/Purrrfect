@@ -1187,7 +1187,7 @@ function onCellClick(index) {
   if (!check.ok) {
     state.mistakes++;
     updateStats();
-    if (check.reason === "touching") {
+    if (findTouchConflictCell(index, state) !== null) {
       flashTouchConflict(index);
     }
     setStatus(`Cannot place cat: ${explainReason(check.reason)}.`, "warn");
@@ -1242,14 +1242,6 @@ function canPlaceCat(cell, currentState) {
       return { ok: false, reason: "region" };
     }
 
-    if (rowOf(i, size) === r) {
-      return { ok: false, reason: "row" };
-    }
-
-    if (colOf(i, size) === c) {
-      return { ok: false, reason: "column" };
-    }
-
     if (!config.allowDiagonalTouch) {
       const dr = Math.abs(rowOf(i, size) - r);
       const dc = Math.abs(colOf(i, size) - c);
@@ -1258,18 +1250,50 @@ function canPlaceCat(cell, currentState) {
         return { ok: false, reason: "touching", conflictCell: i };
       }
     }
+
+    if (rowOf(i, size) === r) {
+      return { ok: false, reason: "row" };
+    }
+
+    if (colOf(i, size) === c) {
+      return { ok: false, reason: "column" };
+    }
+
   }
 
   return { ok: true };
 }
 
+function findTouchConflictCell(cell, currentState) {
+  if (currentState.config.allowDiagonalTouch) {
+    return null;
+  }
+
+  const size = currentState.puzzle.size;
+  const row = rowOf(cell, size);
+  const col = colOf(cell, size);
+
+  for (let i = 0; i < currentState.cats.length; i++) {
+    if (!currentState.cats[i]) continue;
+
+    const dr = Math.abs(rowOf(i, size) - row);
+    const dc = Math.abs(colOf(i, size) - col);
+
+    if (dr <= 1 && dc <= 1) {
+      return i;
+    }
+  }
+
+  return null;
+}
+
 function flashTouchConflict(targetCell) {
-  const result = canPlaceCat(targetCell, state);
-  if (result.reason !== "touching" || typeof result.conflictCell !== "number") {
+  const conflictCell = findTouchConflictCell(targetCell, state);
+  if (typeof conflictCell !== "number") {
     return;
   }
 
-  state.touchHighlightCells = [targetCell, result.conflictCell];
+  state.touchHighlightCells = [targetCell, conflictCell];
   renderBoard();
 
   setTimeout(() => {
