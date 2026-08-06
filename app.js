@@ -322,6 +322,10 @@ function bindEvents() {
 
   ui.checkBtn.addEventListener("click", () => {
     checkCurrentBoard();
+
+    if (state.tutorial.active && state.tutorial.step === 4) {
+      endTutorial();
+    }
   });
 
   ui.resetBtn.addEventListener("click", () => {
@@ -1359,6 +1363,16 @@ function onCellClick(index) {
   state.cats[index] = true;
   state.catCount++;
   state.history.push({ type: "place", index });
+
+  if (state.tutorial.active && (state.tutorial.step === 2 || state.tutorial.step === 3)) {
+    const expectedCell = state.tutorial.step === 2
+      ? state.puzzle.solution[0]
+      : state.puzzle.solution.find((cell) => cell !== state.puzzle.solution[0]);
+
+    if (index === expectedCell) {
+      advanceTutorial();
+    }
+  }
 
   renderBoard();
   updateStats();
