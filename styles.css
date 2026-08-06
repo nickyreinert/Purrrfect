@@ -183,18 +183,32 @@ button {
 }
 
 .btn-icon {
-  width: 1rem;
-  height: 1rem;
+  width: 1.7rem;
+  height: 1.7rem;
+  border-radius: 999px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   flex: 0 0 auto;
+  background: rgba(125, 63, 15, 0.1);
+  color: #8a4c17;
+  transition: background 160ms ease, color 160ms ease, transform 160ms ease;
+}
+
+button:hover .btn-icon {
+  transform: scale(1.06);
+}
+
+.tab.active .btn-icon,
+.cta .btn-icon {
+  background: rgba(255, 255, 255, 0.28);
+  color: #fff;
 }
 
 .btn-icon svg {
-  width: 100%;
-  height: 100%;
-  stroke-width: 2;
+  width: 60%;
+  height: 60%;
+  stroke-width: 1.6;
   stroke-linecap: round;
   stroke-linejoin: round;
 }
@@ -203,6 +217,22 @@ button {
   stroke: currentColor;
   fill: none;
 }
+
+#mode-round .btn-icon { background: rgba(255, 111, 60, 0.16); color: #d94710; }
+#mode-campaign .btn-icon { background: rgba(67, 170, 139, 0.18); color: #1f7a5c; }
+#toggle-settings .btn-icon { background: rgba(87, 117, 144, 0.16); color: #47637c; }
+#toggle-info .btn-icon { background: rgba(249, 199, 79, 0.28); color: #a5730c; }
+#toggle-stats .btn-icon { background: rgba(249, 115, 22, 0.18); color: #c2540a; }
+#hint-btn .btn-icon { background: rgba(249, 199, 79, 0.3); color: #a5730c; }
+#solver-btn .btn-icon { background: rgba(119, 89, 209, 0.2); color: #5b3fae; }
+#check-btn .btn-icon { background: rgba(30, 143, 83, 0.18); color: #1e8f53; }
+#reset-btn .btn-icon { background: rgba(184, 74, 10, 0.16); color: #b84a0a; }
+#restart-tutorial .btn-icon { background: rgba(217, 71, 16, 0.16); color: #d94710; }
+#load-level .btn-icon,
+#new-round .btn-icon,
+#new-grid-btn .btn-icon,
+#next-auto-btn .btn-icon { background: rgba(255, 255, 255, 0.3); color: #fff; }
+#next-level .btn-icon { background: rgba(217, 71, 16, 0.16); color: #d94710; }
 
 .tab {
   background: #ffe7c2;
