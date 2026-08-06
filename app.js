@@ -41,6 +41,7 @@ const state = {
   totalCampaignStars: 0,
   solverMode: false,
   solverCandidates: new Map(),
+  touchHighlightCells: [],
   settingsOpen: false,
   infoOpen: false,
   statsOpen: false,
@@ -71,6 +72,9 @@ const ui = {
   statUnlocked: document.getElementById("stat-unlocked"),
   statTotalStars: document.getElementById("stat-total-stars"),
   statStars: document.getElementById("stat-stars"),
+  campaignBadges: document.getElementById("campaign-badges"),
+  campaignProgressFill: document.getElementById("campaign-progress-fill"),
+  campaignProgressText: document.getElementById("campaign-progress-text"),
   starsStrip: document.getElementById("stars-strip"),
   rulesList: document.getElementById("rules-list"),
   leaderboardLabel: document.getElementById("leaderboard-label"),
@@ -124,10 +128,11 @@ async function init() {
   const storedLevel = await getMeta("campaignUnlockedLevel", 1);
   state.campaignUnlockedLevel = clamp(Number(storedLevel || 1), 1, 100);
   state.totalCampaignStars = await getTotalCampaignStars();
-  state.selectedCampaignLevel = state.campaignUnlockedLevel;
+  state.selectedCampaignLevel = Math.min(state.campaignUnlockedLevel, getMaxAccessibleCampaignLevel());
   ui.statUnlocked.textContent = String(state.campaignUnlockedLevel);
   ui.statTotalStars.textContent = String(state.totalCampaignStars);
   updateLevelDisplay();
+  renderCampaignBadges();
   renderPanelVisibility();
 
   loadRound();
@@ -341,12 +346,24 @@ function renderMode() {
 
 function getRequiredStarsForLevel(level) {
   if (level <= 8) return 0;
-  if (level <= 18) return 6;
-  if (level <= 32) return 15;
-  if (level <= 48) return 30;
-  if (level <= 66) return 48;
-  if (level <= 84) return 72;
-  return 96;
+  if (level <= 18) return 3;
+  if (level <= 32) return 9;
+  if (level <= 48) return 18;
+  if (level <= 66) return 30;
+  if (level <= 84) return 45;
+  return 60;
+}
+
+function getCampaignBands() {
+  return [
+    { key: "sprout", icon: "🌱", label: "Sprout", range: "L1-8", requiredStars: 0, reward: "Tiny boards" },
+    { key: "rookie", icon: "🐾", label: "Rookie", range: "L9-18", requiredStars: 3, reward: "4x4 campaign" },
+    { key: "pouncer", icon: "🧩", label: "Pouncer", range: "L19-32", requiredStars: 9, reward: "5x5 campaign" },
+    { key: "hunter", icon: "🧱", label: "Hunter", range: "L33-48", requiredStars: 18, reward: "Solid blockers" },
+    { key: "shadow", icon: "🌙", label: "Shadow", range: "L49-66", requiredStars: 30, reward: "Bigger boards" },
+    { key: "oracle", icon: "🔮", label: "Oracle", range: "L67-84", requiredStars: 45, reward: "Fragile blockers" },
+    { key: "mythic", icon: "👑", label: "Mythic", range: "L85-100", requiredStars: 60, reward: "No-solver endgame" }
+  ];
 }
 
 function getMaxAccessibleCampaignLevel() {
@@ -1102,6 +1119,7 @@ function renderBoard() {
 
   ui.board.innerHTML = "";
   ui.board.dataset.size = String(puzzle.size);
+  ui.board.classList.toggle("touch-feedback", state.touchHighlightCells.length > 0);
   ui.board.style.gridTemplateColumns = `repeat(${puzzle.size}, minmax(0, 1fr))`;
 
   for (let i = 0; i < puzzle.size * puzzle.size; i++) {
@@ -1126,6 +1144,10 @@ function renderBoard() {
     if (state.cats[i]) {
       cell.classList.add("cat");
       cell.setAttribute("aria-label", `Cat in region ${regionId + 1}`);
+    }
+
+    if (state.touchHighlightCells.includes(i)) {
+      cell.classList.add("touch-focus");
     }
 
     if (!puzzle.blocked[i] && !state.cats[i] && state.solverMode && state.solverCandidates.has(i)) {
@@ -1165,6 +1187,9 @@ function onCellClick(index) {
   if (!check.ok) {
     state.mistakes++;
     updateStats();
+    if (check.reason === "touching") {
+      flashTouchConflict(index);
+    }
     setStatus(`Cannot place cat: ${explainReason(check.reason)}.`, "warn");
     return;
   }
@@ -1230,12 +1255,27 @@ function canPlaceCat(cell, currentState) {
       const dc = Math.abs(colOf(i, size) - c);
 
       if (dr <= 1 && dc <= 1) {
-        return { ok: false, reason: "touching" };
+        return { ok: false, reason: "touching", conflictCell: i };
       }
     }
   }
 
   return { ok: true };
+}
+
+function flashTouchConflict(targetCell) {
+  const result = canPlaceCat(targetCell, state);
+  if (result.reason !== "touching" || typeof result.conflictCell !== "number") {
+    return;
+  }
+
+  state.touchHighlightCells = [targetCell, result.conflictCell];
+  renderBoard();
+
+  setTimeout(() => {
+    state.touchHighlightCells = [];
+    renderBoard();
+  }, 850);
 }
 
 function checkBoard(cats, puzzle, config) {
@@ -1427,6 +1467,36 @@ function updateStats() {
   ui.statUnlocked.textContent = String(state.campaignUnlockedLevel);
   ui.statTotalStars.textContent = String(state.totalCampaignStars);
   ui.statStars.textContent = state.earnedStars > 0 ? `${state.earnedStars}/3` : "-";
+  renderCampaignBadges();
+}
+
+function renderCampaignBadges() {
+  if (!ui.campaignBadges) {
+    return;
+  }
+
+  ui.campaignBadges.innerHTML = "";
+
+  const bands = getCampaignBands();
+  const nextLocked = bands.find((band) => state.totalCampaignStars < band.requiredStars) || bands[bands.length - 1];
+  const prevUnlocked = [...bands].reverse().find((band) => state.totalCampaignStars >= band.requiredStars) || bands[0];
+  const span = Math.max(1, nextLocked.requiredStars - prevUnlocked.requiredStars);
+  const progressed = Math.max(0, state.totalCampaignStars - prevUnlocked.requiredStars);
+  const percent = nextLocked.requiredStars === prevUnlocked.requiredStars ? 100 : Math.min(100, Math.round((progressed / span) * 100));
+
+  ui.campaignProgressFill.style.width = `${percent}%`;
+  ui.campaignProgressText.textContent = nextLocked.requiredStars === prevUnlocked.requiredStars
+    ? `All badge bands unlocked with ${state.totalCampaignStars} stars.`
+    : `${state.totalCampaignStars} / ${nextLocked.requiredStars} stars to ${nextLocked.label}`;
+
+  for (const band of bands) {
+    const badge = document.createElement("div");
+    const unlocked = state.totalCampaignStars >= band.requiredStars;
+    badge.className = `campaign-badge ${unlocked ? "unlocked" : "locked"}`;
+    badge.dataset.band = band.key;
+    badge.innerHTML = `<strong>${band.icon} ${band.label}</strong><span>${band.range} · ${band.requiredStars}★</span><em>${band.reward}</em>`;
+    ui.campaignBadges.append(badge);
+  }
 }
 
 function calculateStars() {
