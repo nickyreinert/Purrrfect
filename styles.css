@@ -175,6 +175,29 @@ button {
   border-radius: 12px;
   padding: 0.55rem 0.9rem;
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+}
+
+.btn-icon {
+  width: 1rem;
+  height: 1rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+}
+
+.btn-icon svg {
+  width: 100%;
+  height: 100%;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 .tab {
@@ -245,6 +268,10 @@ button {
   padding: 1rem;
   background: rgba(31, 26, 18, 0.18);
   pointer-events: none;
+}
+
+.tutorial-overlay.hidden {
+  display: none;
 }
 
 .tutorial-card {
