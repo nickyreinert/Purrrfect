@@ -475,6 +475,44 @@ input {
   color: #6e3b12;
 }
 
+.stars-strip {
+  min-height: 2rem;
+  margin-top: 0.7rem;
+  display: flex;
+  justify-content: center;
+  gap: 0.45rem;
+  font-size: 1.45rem;
+}
+
+.star {
+  opacity: 0.28;
+  transform: scale(0.94);
+}
+
+.star.filled {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.stars-strip {
+  min-height: 2rem;
+  margin-top: 0.7rem;
+  display: flex;
+  justify-content: center;
+  gap: 0.45rem;
+  font-size: 1.45rem;
+}
+
+.stars-strip .star {
+  opacity: 0.28;
+  transform: scale(0.94);
+}
+
+.stars-strip .star.filled {
+  opacity: 1;
+  transform: scale(1);
+}
+
 .stats,
 .rules,
 .leaderboard {

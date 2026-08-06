@@ -29,9 +29,7 @@
       </div>
 
       <header class="hero">
-        <p class="eyebrow">PWA Puzzle</p>
-        <h1>Purrfect Space</h1>
-        <p class="subtitle">Competitive cats</p>
+        <h1>Purrrfect</h1>
       </header>
 
       <section id="settings-panel" class="panel controls sidebar-panel" aria-label="Game controls">
@@ -89,6 +87,7 @@
         <p><strong>Time:</strong> <span id="stat-time">00:00</span></p>
         <p><strong>Best:</strong> <span id="stat-best">-</span></p>
         <p><strong>Campaign unlocked:</strong> <span id="stat-unlocked">1</span></p>
+        <p><strong>Stars:</strong> <span id="stat-stars">-</span></p>
         <hr class="sidebar-divider" />
         <h2>Top 5</h2>
         <p id="leaderboard-label" class="leaderboard-label">Current setup</p>
@@ -112,6 +111,7 @@
           <button id="reset-btn" class="ghost" type="button">♻️ Reset</button>
         </div>
         <div id="board" class="board" role="grid" aria-label="Puzzle grid"></div>
+        <div id="stars-strip" class="stars-strip" aria-live="polite"></div>
         <p id="status" class="status" aria-live="polite">Build a puzzle to start.</p>
         <div class="next-wrap">
           <button id="next-auto-btn" class="cta hidden" type="button">⏭️ Next Level Now</button>

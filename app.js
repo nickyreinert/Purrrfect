@@ -34,6 +34,7 @@ const state = {
   timerId: null,
   bestMs: null,
   topTimes: [],
+  earnedStars: 0,
   campaignUnlockedLevel: 1,
   solverMode: false,
   solverCandidates: new Map(),
@@ -59,6 +60,8 @@ const ui = {
   statTime: document.getElementById("stat-time"),
   statBest: document.getElementById("stat-best"),
   statUnlocked: document.getElementById("stat-unlocked"),
+  statStars: document.getElementById("stat-stars"),
+  starsStrip: document.getElementById("stars-strip"),
   rulesList: document.getElementById("rules-list"),
   leaderboardLabel: document.getElementById("leaderboard-label"),
   leaderboardList: document.getElementById("leaderboard-list"),
@@ -557,6 +560,7 @@ function startGame(config) {
   state.solverCandidates = new Map();
   state.bestMs = null;
   state.topTimes = [];
+  state.earnedStars = 0;
   state.startedAt = Date.now();
   state.elapsedMs = 0;
 
@@ -564,6 +568,7 @@ function startGame(config) {
 
   renderBoard();
   updateStats();
+  renderStars(0);
   renderRules();
   renderLeaderboard();
   refreshBestScore().catch(() => {
@@ -1168,6 +1173,32 @@ function updateStats() {
   ui.statTime.textContent = formatDuration(state.status === "won" ? state.elapsedMs : Date.now() - state.startedAt);
   ui.statBest.textContent = state.bestMs === null ? "-" : formatDuration(state.bestMs);
   ui.statUnlocked.textContent = String(state.campaignUnlockedLevel);
+  ui.statStars.textContent = state.earnedStars > 0 ? `${state.earnedStars}/3` : "-";
+}
+
+function calculateStars() {
+  let stars = 1;
+
+  if (state.mistakes === 0) {
+    stars += 1;
+  }
+
+  if (state.hintsUsed === 0) {
+    stars += 1;
+  }
+
+  return stars;
+}
+
+function renderStars(stars) {
+  ui.starsStrip.innerHTML = "";
+
+  for (let i = 0; i < 3; i++) {
+    const span = document.createElement("span");
+    span.className = `star${i < stars ? " filled" : ""}`;
+    span.textContent = "⭐";
+    ui.starsStrip.append(span);
+  }
 }
 
 function setStatus(message, tone) {
@@ -1362,6 +1393,9 @@ function advanceToNextCampaignLevel() {
 }
 
 async function handleSolvedGame() {
+  state.earnedStars = calculateStars();
+  renderStars(state.earnedStars);
+  updateStats();
   await saveBestScoreForCurrentConfig(state.elapsedMs);
 
   if (state.config.mode === "campaign" && state.config.level < 100) {
@@ -1414,6 +1448,7 @@ async function saveBestScoreForCurrentConfig(elapsedMs) {
     .slice(0, 5);
   const bestMs = nextTopTimes.length > 0 ? nextTopTimes[0] : elapsedMs;
   const attempts = current && Number.isFinite(Number(current.attempts)) ? Number(current.attempts) + 1 : 1;
+  const stars = Math.max(current && Number.isFinite(Number(current.stars)) ? Number(current.stars) : 0, state.earnedStars);
 
   await putScore({
     key,
@@ -1421,8 +1456,10 @@ async function saveBestScoreForCurrentConfig(elapsedMs) {
     level: state.config.level,
     size: state.config.size,
     regionCount: state.config.regionCount,
+    singletonCount: state.config.singletonCount,
     bestMs,
     topTimes: nextTopTimes,
+    stars,
     attempts,
     updatedAt: Date.now()
   });
