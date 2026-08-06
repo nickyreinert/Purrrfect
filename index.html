@@ -47,6 +47,16 @@
           <div class="setting-group">
             <p class="setting-title">Difficulty</p>
             <div id="difficulty-options" class="option-grid"></div>
+            <label class="slider-wrap" for="difficulty-slider">
+              <span id="difficulty-help" class="slider-help">Easy means more tiny one-cell regions.</span>
+              <input id="difficulty-slider" type="range" min="0" max="4" step="1" value="2" />
+              <div class="slider-scale">
+                <span>Hard</span>
+                <span>Normal</span>
+                <span>Easy</span>
+              </div>
+              <p id="difficulty-readout" class="difficulty-readout">0 tiny regions</p>
+            </label>
           </div>
           <button id="new-round" class="cta" type="button">🎮 Start Single</button>
         </div>

@@ -798,6 +798,7 @@ function renderBoard() {
   state.solverCandidates = state.solverMode ? computeSolverCandidates() : new Map();
 
   ui.board.innerHTML = "";
+  ui.board.dataset.size = String(puzzle.size);
   ui.board.style.gridTemplateColumns = `repeat(${puzzle.size}, minmax(0, 1fr))`;
 
   for (let i = 0; i < puzzle.size * puzzle.size; i++) {
