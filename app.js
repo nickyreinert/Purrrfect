@@ -252,27 +252,27 @@ function bindEvents() {
   });
 
   ui.loadLevelBtn.addEventListener("click", () => {
-    const level = clamp(state.selectedCampaignLevel, 1, state.campaignUnlockedLevel);
+    const level = clamp(state.selectedCampaignLevel, 1, getMaxAccessibleCampaignLevel());
     state.selectedCampaignLevel = level;
     updateLevelDisplay();
     loadCampaignLevel(level);
   });
 
   ui.nextLevelBtn.addEventListener("click", () => {
-    const current = clamp(state.selectedCampaignLevel, 1, state.campaignUnlockedLevel);
-    const next = clamp(current + 1, 1, state.campaignUnlockedLevel);
+    const current = clamp(state.selectedCampaignLevel, 1, getMaxAccessibleCampaignLevel());
+    const next = clamp(current + 1, 1, getMaxAccessibleCampaignLevel());
     state.selectedCampaignLevel = next;
     updateLevelDisplay();
     loadCampaignLevel(next);
   });
 
   ui.levelDownBtn.addEventListener("click", () => {
-    state.selectedCampaignLevel = clamp(state.selectedCampaignLevel - 1, 1, state.campaignUnlockedLevel);
+    state.selectedCampaignLevel = clamp(state.selectedCampaignLevel - 1, 1, getMaxAccessibleCampaignLevel());
     updateLevelDisplay();
   });
 
   ui.levelUpBtn.addEventListener("click", () => {
-    state.selectedCampaignLevel = clamp(state.selectedCampaignLevel + 1, 1, state.campaignUnlockedLevel);
+    state.selectedCampaignLevel = clamp(state.selectedCampaignLevel + 1, 1, getMaxAccessibleCampaignLevel());
     updateLevelDisplay();
   });
 
@@ -303,6 +303,9 @@ function bindEvents() {
     state.blockerOf = state.puzzle.blocked.slice();
     state.catCount = 0;
     state.status = "playing";
+    state.hintsUsed = 0;
+    state.checksUsed = 0;
+    state.mistakes = 0;
     state.solverCandidates = new Map();
     renderBoard();
     updateStats();
@@ -329,11 +332,35 @@ function renderMode() {
   if (isRound) {
     loadRound();
   } else {
-    const level = clamp(state.selectedCampaignLevel, 1, state.campaignUnlockedLevel);
+    const level = clamp(state.selectedCampaignLevel, 1, getMaxAccessibleCampaignLevel());
     state.selectedCampaignLevel = level;
     updateLevelDisplay();
     loadCampaignLevel(level);
   }
+}
+
+function getRequiredStarsForLevel(level) {
+  if (level <= 8) return 0;
+  if (level <= 18) return 6;
+  if (level <= 32) return 15;
+  if (level <= 48) return 30;
+  if (level <= 66) return 48;
+  if (level <= 84) return 72;
+  return 96;
+}
+
+function getMaxAccessibleCampaignLevel() {
+  let gatedLevel = 1;
+
+  for (let level = 1; level <= state.campaignUnlockedLevel; level++) {
+    if (state.totalCampaignStars >= getRequiredStarsForLevel(level)) {
+      gatedLevel = level;
+    } else {
+      break;
+    }
+  }
+
+  return gatedLevel;
 }
 
 function renderPanelVisibility() {
@@ -353,7 +380,29 @@ function closeAllSidebars() {
 }
 
 function updateLevelDisplay() {
+  const maxAccessible = getMaxAccessibleCampaignLevel();
+  state.selectedCampaignLevel = clamp(state.selectedCampaignLevel, 1, Math.max(1, maxAccessible));
   ui.levelValue.textContent = String(state.selectedCampaignLevel);
+  const requiredStars = getRequiredStarsForLevel(state.selectedCampaignLevel);
+  ui.campaignLockNote.textContent = state.totalCampaignStars >= requiredStars
+    ? `You have ${state.totalCampaignStars} stars. This level is unlocked.`
+    : `Need ${requiredStars} stars. You currently have ${state.totalCampaignStars}.`;
+}
+
+function toggleRoundModifier(key) {
+  if (key === "hint") {
+    state.selectedRoundModifiers.maxHints = state.selectedRoundModifiers.maxHints === 1 ? null : 1;
+    return;
+  }
+
+  if (key === "check") {
+    state.selectedRoundModifiers.maxChecks = state.selectedRoundModifiers.maxChecks === 2 ? null : 2;
+    return;
+  }
+
+  if (key === "solver") {
+    state.selectedRoundModifiers.solverDisabled = !state.selectedRoundModifiers.solverDisabled;
+  }
 }
 
 function syncDifficultyButtons() {
@@ -406,6 +455,14 @@ function renderRoundPickerState() {
     el.classList.toggle("active", isActive);
   }
 
+  for (const el of ui.modifierOptions.querySelectorAll(".option-btn")) {
+    const key = el.dataset.modifier;
+    const isActive = (key === "hint" && state.selectedRoundModifiers.maxHints === 1)
+      || (key === "check" && state.selectedRoundModifiers.maxChecks === 2)
+      || (key === "solver" && state.selectedRoundModifiers.solverDisabled);
+    el.classList.toggle("active", isActive);
+  }
+
   syncRoundDifficultySlider();
 }
 
@@ -416,13 +473,13 @@ function loadRound() {
 }
 
 function loadCampaignLevel(level) {
-  const safeLevel = clamp(level, 1, state.campaignUnlockedLevel);
+  const safeLevel = clamp(level, 1, getMaxAccessibleCampaignLevel());
   state.selectedCampaignLevel = safeLevel;
   updateLevelDisplay();
   const config = getCampaignConfig(safeLevel);
   startGame(config);
 
-  if (level > state.campaignUnlockedLevel) {
+  if (level > getMaxAccessibleCampaignLevel()) {
     setStatus(`Level ${level} is locked. Loaded level ${safeLevel}.`, "warn");
   }
 }
@@ -447,11 +504,7 @@ function buildRoundConfig(size, singletonCount) {
     difficulty,
     size: normalizedSize,
     regionCount: normalizedSize,
-    modifiers: {
-      maxHints: null,
-      maxChecks: null,
-      solverDisabled: false
-    },
+    modifiers: { ...state.selectedRoundModifiers },
     allowDiagonalTouch,
     blockers: 0,
     blockerMode: "none",
@@ -516,7 +569,11 @@ function getModifiersForLevel(level) {
   }
 
   if (level < 80) {
-    return { maxHints: 1, maxChecks: 2, solverDisabled: false };
+    return { maxHints: 1, maxChecks: 3, solverDisabled: false };
+  }
+
+  if (level < 90) {
+    return { maxHints: 0, maxChecks: 2, solverDisabled: false };
   }
 
   return { maxHints: 0, maxChecks: 1, solverDisabled: true };
@@ -1341,6 +1398,10 @@ function renderRules() {
     lines.push("Modifier: solver disabled.");
   }
 
+  if (config.mode === "campaign") {
+    lines.push(`Star gate: requires ${getRequiredStarsForLevel(config.level)} total campaign stars.`);
+  }
+
   if (config.allowDiagonalTouch && config.size <= 3) {
     lines.push("On this tiny board, diagonal touching is allowed.");
   } else {
@@ -1364,6 +1425,7 @@ function updateStats() {
   ui.statTime.textContent = formatDuration(state.status === "won" ? state.elapsedMs : Date.now() - state.startedAt);
   ui.statBest.textContent = state.bestMs === null ? "-" : formatDuration(state.bestMs);
   ui.statUnlocked.textContent = String(state.campaignUnlockedLevel);
+  ui.statTotalStars.textContent = String(state.totalCampaignStars);
   ui.statStars.textContent = state.earnedStars > 0 ? `${state.earnedStars}/3` : "-";
 }
 
@@ -1585,9 +1647,9 @@ function advanceToNextCampaignLevel() {
     });
   }
 
-  state.selectedCampaignLevel = nextLevel;
+  state.selectedCampaignLevel = Math.min(nextLevel, getMaxAccessibleCampaignLevel());
   updateLevelDisplay();
-  loadCampaignLevel(nextLevel);
+  loadCampaignLevel(state.selectedCampaignLevel);
 }
 
 async function handleSolvedGame() {
@@ -1598,12 +1660,14 @@ async function handleSolvedGame() {
     ui.newGridBtn.classList.remove("hidden");
   }
   await saveBestScoreForCurrentConfig(state.elapsedMs);
+  state.totalCampaignStars = await getTotalCampaignStars();
+  updateStats();
 
   if (state.config.mode === "campaign" && state.config.level < 100) {
     const newUnlocked = Math.max(state.campaignUnlockedLevel, state.config.level + 1);
     if (newUnlocked !== state.campaignUnlockedLevel) {
       state.campaignUnlockedLevel = newUnlocked;
-      state.selectedCampaignLevel = newUnlocked;
+      state.selectedCampaignLevel = Math.min(newUnlocked, getMaxAccessibleCampaignLevel());
       await setMeta("campaignUnlockedLevel", newUnlocked);
       updateLevelDisplay();
       updateStats();
@@ -1618,7 +1682,7 @@ function buildScoreKey(config) {
     return `campaign:${config.level}`;
   }
 
-  return `round:${config.size}:${config.regionCount}:${config.singletonCount}:${config.allowDiagonalTouch ? 1 : 0}:${config.blockers}`;
+  return `round:${config.size}:${config.regionCount}:${config.singletonCount}:${config.modifiers.maxHints ?? "n"}:${config.modifiers.maxChecks ?? "n"}:${config.modifiers.solverDisabled ? 1 : 0}:${config.allowDiagonalTouch ? 1 : 0}:${config.blockers}`;
 }
 
 async function refreshBestScore() {
@@ -1777,6 +1841,27 @@ async function getScore(key) {
 
 async function putScore(record) {
   await writeStore(STORE_SCORES, record);
+}
+
+async function getAllScores() {
+  const db = await initDatabase();
+
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_SCORES, "readonly");
+    const store = tx.objectStore(STORE_SCORES);
+    const request = store.getAll();
+
+    request.onsuccess = () => resolve(request.result || []);
+    request.onerror = () => reject(request.error || new Error("Read all scores failed"));
+  });
+}
+
+async function getTotalCampaignStars() {
+  const scores = await getAllScores();
+
+  return scores
+    .filter((row) => row.mode === "campaign")
+    .reduce((sum, row) => sum + (Number.isFinite(Number(row.stars)) ? Number(row.stars) : 0), 0);
 }
 
 function solvePuzzle(puzzle, config, presetCats, maxSolutions = 1, blockerOf = puzzle.blocked) {
