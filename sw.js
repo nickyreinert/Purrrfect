@@ -1,4 +1,4 @@
-const CACHE_NAME = "purrfect-regions-v3";
+const CACHE_NAME = "Purrrfect-regions-v3";
 const ASSETS = [
   "./",
   "./index.html",
